@@ -16,7 +16,7 @@ export default function DryCleanerLoginPage() {
     setError("");
     setLoading(true);
     try {
-      await apiFetch("/api/auth/request-otp", {
+      await apiFetch("/api/auth/request-otp", "dryclean", {
         method: "POST",
         body: JSON.stringify({ phone, role: "DRYCLEANER_ADMIN" }),
       });
@@ -32,7 +32,7 @@ export default function DryCleanerLoginPage() {
     setError("");
     setLoading(true);
     try {
-      const data = await apiFetch<{ token: string; user: { role: string } }>("/api/auth/verify-otp", {
+      const data = await apiFetch<{ token: string; user: { role: string } }>("/api/auth/verify-otp", "dryclean", {
         method: "POST",
         body: JSON.stringify({ phone, code }),
       });
