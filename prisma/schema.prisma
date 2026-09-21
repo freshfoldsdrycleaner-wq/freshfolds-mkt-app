@@ -1,0 +1,345 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  CUSTOMER
+  DRYCLEANER_ADMIN
+  DELIVERY_PERSON
+  FRESHFOLD_ADMIN
+}
+
+enum DryCleanerStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+// Section 24/29: a dry-cleaner's own price/catalog edits never go live
+// immediately — they sit as PENDING_* until a FRESHFOLD_ADMIN approves or
+// rejects them (see src/lib/serviceApproval.ts, the single source of truth
+// for what each transition does to a Service row).
+enum ServiceStatus {
+  ACTIVE
+  PENDING_NEW
+  PENDING_EDIT
+  PENDING_DELETE
+}
+
+enum OrderStatus {
+  ORDER_PLACED
+  PICKUP_ASSIGNED
+  PICKUP_IN_PROGRESS
+  PICKED_UP
+  RECEIVED_BY_DRY_CLEANER
+  INSPECTION
+  PROCESSING
+  QUALITY_CHECK
+  COMPLETED
+  PAYMENT_PENDING
+  PAYMENT_COMPLETED
+  DELIVERY_ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CLOSED
+  CANCELLED
+}
+
+enum SettlementStatus {
+  PENDING
+  PARTIALLY_SETTLED
+  SETTLED
+}
+
+enum DefectType {
+  STAIN
+  TEAR
+  HOLE
+  DISCOLORATION
+  MISSING_BUTTON
+  BROKEN_ZIP
+  EXISTING_DAMAGE
+  NONE
+  OTHER
+}
+
+enum PaymentType {
+  BOOKING
+  FINAL
+  REFUND
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum AssignmentType {
+  PICKUP
+  DELIVERY
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ---------- Models ----------
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  phone     String   @unique
+  email     String?  @unique
+  role      Role
+  createdAt DateTime @default(now())
+
+  dryCleaner          DryCleaner?
+  ordersAsCustomer    Order[]               @relation("CustomerOrders")
+  deliveryAssignments DeliveryAssignment[]
+  reviews             Review[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  otpCodes            OtpCode[]
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  codeHash  String
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model DryCleaner {
+  id             String           @id @default(cuid())
+  ownerId        String           @unique
+  owner          User             @relation(fields: [ownerId], references: [id])
+  businessName   String
+  phone          String
+  address        String
+  latitude       Float
+  longitude      Float
+  operatingHours String?
+  status         DryCleanerStatus @default(PENDING)
+  createdAt      DateTime         @default(now())
+
+  services Service[]
+  orders   Order[]
+  reviews  Review[]
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  dryCleanerId String
+  dryCleaner   DryCleaner    @relation(fields: [dryCleanerId], references: [id])
+  category     String
+  itemName     String
+  serviceName  String
+  price        Decimal       @db.Decimal(10, 2)
+  discountPercent Decimal    @default(0) @db.Decimal(5, 2)
+  hasPhoto     Boolean       @default(false)
+  status       ServiceStatus @default(PENDING_NEW)
+  // Holds the proposed { price, discountPercent, hasPhoto } while status is
+  // PENDING_EDIT. Left null otherwise. Approving merges it in; rejecting
+  // discards it and reverts status to ACTIVE — see serviceApproval.ts.
+  pendingData  Json?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([dryCleanerId])
+}
+
+// Admin-configurable platform commission, versioned by effective date.
+// Orders store the rate that actually applied to them (see Order.commissionRate) —
+// this table is only used to look up "what rate applies right now / as of date X".
+model PlatformSetting {
+  id             String   @id @default(cuid())
+  commissionRate Decimal  @db.Decimal(5, 2) // e.g. 10.00 = 10%
+  effectiveFrom  DateTime
+  createdAt      DateTime @default(now())
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  orderNumber  String   @unique
+  customerId   String
+  customer     User     @relation("CustomerOrders", fields: [customerId], references: [id])
+  dryCleanerId String
+  dryCleaner   DryCleaner @relation(fields: [dryCleanerId], references: [id])
+
+  pickupAddress   String
+  deliveryAddress String
+
+  status OrderStatus @default(ORDER_PLACED)
+
+  // --- financials (all server-calculated, never trusted from the client) ---
+  estimatedTotal      Decimal @db.Decimal(10, 2)
+  finalTotal          Decimal? @db.Decimal(10, 2)
+  commissionRate      Decimal @db.Decimal(5, 2) // rate locked in at order placement
+  commissionAmount    Decimal? @db.Decimal(10, 2)
+  dryCleanerNetAmount Decimal? @db.Decimal(10, 2)
+  amountPaid          Decimal @default(0) @db.Decimal(10, 2)
+  balanceDue          Decimal? @db.Decimal(10, 2)
+  settlementStatus    SettlementStatus @default(PENDING)
+
+  pickupConditionConfirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items                   OrderItem[]
+  pickupPhotos            PickupPhoto[]
+  defects                 Defect[]
+  payments                Payment[]
+  deliveryAssignments     DeliveryAssignment[]
+  commissionTransactions  CommissionTransaction[]
+  review                  Review?
+
+  @@index([customerId])
+  @@index([dryCleanerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  order          Order   @relation(fields: [orderId], references: [id])
+  itemName       String
+  serviceName    String
+  quantity       Int
+  estimatedPrice Decimal @db.Decimal(10, 2) // price × quantity, estimated
+  finalPrice     Decimal? @db.Decimal(10, 2) // set after dry-cleaner inspection
+
+  @@index([orderId])
+}
+
+model PickupPhoto {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  itemRef    String? // free-text label e.g. "shirt-1-front"
+  photoUrl   String  // secure object-storage URL, never raw bytes in DB
+  uploadedBy String  // userId of the delivery person
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model Defect {
+  id          String     @id @default(cuid())
+  orderId     String
+  order       Order      @relation(fields: [orderId], references: [id])
+  itemRef     String?
+  defectType  DefectType
+  description String?
+  photoUrl    String?
+  recordedBy  String // userId of the delivery person
+  createdAt   DateTime   @default(now())
+
+  @@index([orderId])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentType   PaymentType
+  transactionId String        @unique
+  status        PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+
+  @@index([orderId])
+}
+
+model DeliveryAssignment {
+  id               String           @id @default(cuid())
+  orderId          String
+  order            Order            @relation(fields: [orderId], references: [id])
+  deliveryPersonId String
+  deliveryPerson   User             @relation(fields: [deliveryPersonId], references: [id])
+  assignmentType   AssignmentType
+  status           AssignmentStatus @default(ASSIGNED)
+  createdAt        DateTime         @default(now())
+
+  @@index([orderId])
+  @@index([deliveryPersonId])
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  orderId    String?
+  title      String
+  message    String
+  readStatus Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Review {
+  id           String     @id @default(cuid())
+  orderId      String     @unique
+  order        Order      @relation(fields: [orderId], references: [id])
+  customerId   String
+  customer     User       @relation(fields: [customerId], references: [id])
+  dryCleanerId String
+  dryCleaner   DryCleaner @relation(fields: [dryCleanerId], references: [id])
+  rating       Int
+  review       String?
+  createdAt    DateTime   @default(now())
+
+  @@index([dryCleanerId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  oldValue   Json?
+  newValue   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
+// One row per order, recording exactly the commission math applied to that
+// order at the rate/value in force at the time — never recalculated later
+// from the current global PlatformSetting.
+model CommissionTransaction {
+  id                  String           @id @default(cuid())
+  orderId             String
+  order               Order            @relation(fields: [orderId], references: [id])
+  dryCleanerId        String
+  commissionRate      Decimal          @db.Decimal(5, 2)
+  orderValue          Decimal          @db.Decimal(10, 2)
+  commissionAmount    Decimal          @db.Decimal(10, 2)
+  dryCleanerNetAmount Decimal          @db.Decimal(10, 2)
+  status              SettlementStatus @default(PENDING)
+  createdAt           DateTime         @default(now())
+
+  @@index([dryCleanerId])
+  @@index([orderId])
+}
