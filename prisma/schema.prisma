@@ -183,11 +183,13 @@ model Order {
   customer     User     @relation("CustomerOrders", fields: [customerId], references: [id])
   dryCleanerId String
   dryCleaner   DryCleaner @relation(fields: [dryCleanerId], references: [id])
-
-  pickupAddress   String
-  deliveryAddress String
-
+  
+  pickupAddress String 
+  deliveryAddress String 
+  preferredPickupAt DateTime? 
+ 
   status OrderStatus @default(ORDER_PLACED)
+ 
 
   // --- financials (all server-calculated, never trusted from the client) ---
   estimatedTotal      Decimal @db.Decimal(10, 2)
