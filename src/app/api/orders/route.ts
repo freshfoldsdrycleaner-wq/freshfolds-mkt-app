@@ -13,13 +13,14 @@ const itemSchema = z.object({
   serviceId: z.string(), // looked up server-side; the client never sends a price
   quantity: z.number().int().positive(),
 });
-const bodySchema = z.object({ 
-  dryCleanerId: z.string(), 
-  pickupAddress: z.string().min(3), 
-  deliveryAddress: z.string().min(3), 
-  preferredPickupAt: z.string().datetime().optional(), 
-  items: z.array(itemSchema).min(1), 
-})
+
+const bodySchema = z.object({
+  dryCleanerId: z.string(),
+  pickupAddress: z.string().min(3),
+  deliveryAddress: z.string().min(3),
+  preferredPickupAt: z.string().datetime().optional(),
+  items: z.array(itemSchema).min(1),
+});
 
 /**
  * POST /api/orders
@@ -43,12 +44,16 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { dryCleanerId, pickupAddress, deliveryAddress, items } = parsed.data;
+  const { dryCleanerId, pickupAddress, deliveryAddress, preferredPickupAt, items } = parsed.data;
 
   // Rule 1: can only order from an ACTIVE dry-cleaner.
   const dryCleaner = await prisma.dryCleaner.findUnique({ where: { id: dryCleanerId } });
   if (!dryCleaner || dryCleaner.status !== "ACTIVE") {
     return NextResponse.json({ error: "Dry-cleaner is not available" }, { status: 400 });
+  }
+
+  if (preferredPickupAt && new Date(preferredPickupAt).getTime() <= Date.now()) {
+    return NextResponse.json({ error: "Preferred pickup time must be in the future" }, { status: 400 });
   }
 
   const serviceIds = items.map((i) => i.serviceId);
@@ -91,6 +96,7 @@ export async function POST(req: Request) {
         dryCleanerId,
         pickupAddress,
         deliveryAddress,
+        preferredPickupAt: preferredPickupAt ? new Date(preferredPickupAt) : undefined,
         estimatedTotal: priced.estimatedTotal,
         commissionRate: DEFAULT_COMMISSION_RATE,
         commissionAmount: commission.commissionAmount,
@@ -170,6 +176,7 @@ export async function POST(req: Request) {
         estimatedTotal: Number(order.estimatedTotal),
         amountPaid: Number(order.amountPaid),
         balanceDue: Number(order.balanceDue),
+        preferredPickupAt: order.preferredPickupAt,
         items: order.items.map((i) => ({ ...i, estimatedPrice: Number(i.estimatedPrice) })),
       },
     },
