@@ -36,7 +36,7 @@ interface OrderRow {
   commissionRate: number; commissionAmount: number | null; dryCleanerNetAmount: number | null; createdAt: string;
 }
 interface OrderDetail extends OrderRow {
-  pickupAddress: string; deliveryAddress: string;
+  pickupAddress: string; deliveryAddress: string; preferredPickupAt: string | null;
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
 }
 
@@ -477,6 +477,11 @@ export default function DryCleanDashboard() {
               <div style={{ marginBottom: 16 }}>
                 <p className="ff-label">Pickup address</p>
                 <p style={{ fontSize: 13 }}>{openOrder.pickupAddress}</p>
+                {openOrder.preferredPickupAt && (
+                  <p style={{ fontSize: 13, color: "#92400e", marginTop: 4 }}>
+                    Customer requested: {new Date(openOrder.preferredPickupAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                  </p>
+                )}
               </div>
 
               {(openOrder.status === "ORDER_PLACED" || openOrder.status === "PAYMENT_COMPLETED") && (
