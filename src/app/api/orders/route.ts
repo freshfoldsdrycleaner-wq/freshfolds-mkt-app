@@ -13,13 +13,13 @@ const itemSchema = z.object({
   serviceId: z.string(), // looked up server-side; the client never sends a price
   quantity: z.number().int().positive(),
 });
-
-const bodySchema = z.object({
-  dryCleanerId: z.string(),
-  pickupAddress: z.string().min(3),
-  deliveryAddress: z.string().min(3),
-  items: z.array(itemSchema).min(1),
-});
+const bodySchema = z.object({ 
+  dryCleanerId: z.string(), 
+  pickupAddress: z.string().min(3), 
+  deliveryAddress: z.string().min(3), 
+  preferredPickupAt: z.string().datetime().optional(), 
+  items: z.array(itemSchema).min(1), 
+})
 
 /**
  * POST /api/orders
