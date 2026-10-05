@@ -37,7 +37,11 @@ let gmailTransporter: ReturnType<typeof nodemailer.createTransport> | null = nul
 function getGmailTransporter() {
   if (!gmailTransporter) {
     gmailTransporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false, // STARTTLS on 587, rather than implicit TLS on 465 —
+      // some hosts block 465 but allow 587 (or vice versa); this is the
+      // port most likely to get through a restrictive outbound firewall.
       auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD,
