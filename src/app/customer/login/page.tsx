@@ -6,8 +6,9 @@ import { apiFetch, saveToken, ApiError } from "@/lib/apiClient";
 
 export default function CustomerLoginPage() {
   const router = useRouter();
-  const [stage, setStage] = useState<"phone" | "code" | "name">("phone");
+  const [stage, setStage] = useState<"details" | "code" | "name">("details");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
@@ -19,7 +20,7 @@ export default function CustomerLoginPage() {
     try {
       await apiFetch("/api/auth/request-otp", "customer", {
         method: "POST",
-        body: JSON.stringify({ phone, role: "CUSTOMER" }),
+        body: JSON.stringify({ phone, email, role: "CUSTOMER" }),
       });
       setStage("code");
     } catch (e) {
@@ -36,10 +37,10 @@ export default function CustomerLoginPage() {
       const data = await apiFetch<{ token: string; user: { role: string; name: string | null } }>(
         "/api/auth/verify-otp",
         "customer",
-        { method: "POST", body: JSON.stringify({ phone, code }) }
+        { method: "POST", body: JSON.stringify({ email, code }) }
       );
       if (data.user.role !== "CUSTOMER") {
-        setError("This number is registered under a different account type.");
+        setError("This email is registered under a different account type.");
         return;
       }
       saveToken(data.token, "customer");
@@ -78,7 +79,7 @@ export default function CustomerLoginPage() {
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px" }}>Fresh Fold</h1>
         <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 24px" }}>Your local dry-cleaning service, simplified.</p>
 
-        {stage === "phone" && (
+        {stage === "details" && (
           <>
             <label className="ff-label">Mobile number</label>
             <input
@@ -88,8 +89,25 @@ export default function CustomerLoginPage() {
               placeholder="98xxxxxxxx"
               style={{ marginBottom: 12 }}
             />
+            <label className="ff-label">Email address</label>
+            <input
+              className="ff-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              style={{ marginBottom: 12 }}
+            />
+            <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 12 }}>
+              Your verification code will be emailed to you.
+            </p>
             {error && <p style={{ color: "#dc2626", fontSize: 13, marginBottom: 12 }}>{error}</p>}
-            <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} disabled={loading || phone.length < 6} onClick={requestOtp}>
+            <button
+              className="ff-btn ff-btn-primary"
+              style={{ width: "100%" }}
+              disabled={loading || phone.length < 6 || !email.includes("@")}
+              onClick={requestOtp}
+            >
               {loading ? "Sending…" : "Send code"}
             </button>
           </>
@@ -98,7 +116,7 @@ export default function CustomerLoginPage() {
         {stage === "code" && (
           <>
             <p style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
-              Enter the 6-digit code sent to <strong>{phone}</strong>.
+              Enter the 6-digit code sent to <strong>{email}</strong>.
             </p>
             <input
               className="ff-input"
@@ -112,8 +130,8 @@ export default function CustomerLoginPage() {
             <button className="ff-btn ff-btn-primary" style={{ width: "100%", marginBottom: 8 }} disabled={loading || code.length !== 6} onClick={verifyOtp}>
               {loading ? "Verifying…" : "Verify & continue"}
             </button>
-            <button className="ff-btn ff-btn-outline" style={{ width: "100%" }} onClick={() => { setStage("phone"); setCode(""); setError(""); }}>
-              Use a different number
+            <button className="ff-btn ff-btn-outline" style={{ width: "100%" }} onClick={() => { setStage("details"); setCode(""); setError(""); }}>
+              Use different details
             </button>
           </>
         )}
