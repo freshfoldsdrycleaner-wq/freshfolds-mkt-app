@@ -39,9 +39,7 @@ function getGmailTransporter() {
     gmailTransporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 587,
-      secure: false, // STARTTLS on 587, rather than implicit TLS on 465 —
-      // some hosts block 465 but allow 587 (or vice versa); this is the
-      // port most likely to get through a restrictive outbound firewall.
+      secure: false,
       auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD,
@@ -51,12 +49,18 @@ function getGmailTransporter() {
   return gmailTransporter;
 }
 
+function otpEmailHtml(code: string): string {
+  return `<div style="font-family:sans-serif;max-width:420px;margin:0 auto;">
+        <h2 style="color:#2563eb;margin-bottom:4px;">Fresh Fold</h2>
+        <p style="color:#334155;">Your verification code is:</p>
+        <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0f172a;">${code}</p>
+        <p style="color:#94a3b8;font-size:13px;">This code expires in 5 minutes. If you didn't request this, you can safely ignore this email.</p>
+      </div>`;
+}
+
 /**
- * Soft-launch real email provider: sends through a real Gmail account via
- * an app password. No domain verification needed (unlike Resend/SES/etc
- * in sandbox mode), since this is just Gmail sending normal mail — the
- * tradeoff is Gmail's own sending limits, which are more than enough for
- * a small pilot group.
+ * Gmail SMTP provider. Note: Railway blocks outbound SMTP, so this does
+ * not work in production there. Kept for local use.
  */
 export class GmailOtpProvider implements OtpProvider {
   async sendCode(destination: string, code: string): Promise<void> {
@@ -65,13 +69,33 @@ export class GmailOtpProvider implements OtpProvider {
       from: `"Fresh Fold" <${process.env.GMAIL_USER}>`,
       to: destination,
       subject: "Your Fresh Fold verification code",
-      html: `<div style="font-family:sans-serif;max-width:420px;margin:0 auto;">
-        <h2 style="color:#2563eb;margin-bottom:4px;">Fresh Fold</h2>
-        <p style="color:#334155;">Your verification code is:</p>
-        <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0f172a;">${code}</p>
-        <p style="color:#94a3b8;font-size:13px;">This code expires in 5 minutes. If you didn't request this, you can safely ignore this email.</p>
-      </div>`,
+      html: otpEmailHtml(code),
     });
+  }
+}
+
+/**
+ * SendGrid HTTP API provider. Uses HTTPS (port 443), so it works on Railway.
+ * Requires env vars SENDGRID_API_KEY and EMAIL_FROM (a verified single sender).
+ */
+export class SendGridOtpProvider implements OtpProvider {
+  async sendCode(destination: string, code: string): Promise<void> {
+    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: destination }] }],
+        from: { email: process.env.EMAIL_FROM, name: "Fresh Fold" },
+        subject: "Your Fresh Fold verification code",
+        content: [{ type: "text/html", value: otpEmailHtml(code) }],
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`SendGrid failed: ${res.status} ${await res.text()}`);
+    }
   }
 }
 
@@ -89,13 +113,13 @@ export function getOtpProvider(): OtpProvider {
 export function getEmailOtpProvider(): OtpProvider {
   const kind = process.env.EMAIL_OTP_PROVIDER ?? "mock";
   switch (kind) {
+    case "sendgrid":
+      return new SendGridOtpProvider();
     case "gmail":
       return new GmailOtpProvider();
     case "mock":
     default:
       return new MockEmailOtpProvider();
-    // case "ses": return new SesEmailOtpProvider(...)
-    // case "postmark": return new PostmarkEmailOtpProvider(...)
   }
 }
 
