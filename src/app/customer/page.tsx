@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
 import OrderPhotos from "@/components/OrderPhotos";
+import PushSetup from "@/components/PushSetup";
 import ClaimPaid from "@/components/ClaimPaid";
 import { FF_UPI_ID, upiLink } from "@/lib/upi";
 
@@ -359,6 +360,7 @@ export default function CustomerApp() {
           </div>
           {profile?.name && <span style={{ fontSize: 12, color: "#64748b" }}>Hi, {profile.name.split(" ")[0]}</span>}
         </div>
+        <PushSetup app="customer" />
         {error && (
           <div className="ff-card" style={{ padding: 10, marginBottom: 12, borderColor: "#fecaca", background: "#fef2f2", color: "#b91c1c", fontSize: 12 }}>
             {error}

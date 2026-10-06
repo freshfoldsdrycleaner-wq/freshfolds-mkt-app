@@ -385,3 +385,16 @@ model VendorPayout {
 
   @@index([dryCleanerId])
 }
+
+// A phone/browser that agreed to receive push notifications for a user.
+model PushSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  endpoint    String
+  app         String // customer | dryclean | admin (decides which app opens on tap)
+  lastShownAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, endpoint])
+  @@index([endpoint])
+}

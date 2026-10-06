@@ -6,6 +6,7 @@ import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
 import OrderPhotos from "@/components/OrderPhotos";
 import DryCleanerTermsForm from "@/components/DryCleanerTermsForm";
+import PushSetup from "@/components/PushSetup";
 import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
 
 const inr = (n: number | null | undefined) =>
@@ -329,6 +330,7 @@ export default function DryCleanDashboard() {
         <button className="ff-btn ff-btn-outline" onClick={logout}>Log out</button>
       </div>
 
+      <PushSetup app="dryclean" />
       {error && (
         <div className="ff-card" style={{ padding: 12, marginBottom: 16, borderColor: "#fecaca", background: "#fef2f2", color: "#b91c1c", fontSize: 13 }}>
           {error}

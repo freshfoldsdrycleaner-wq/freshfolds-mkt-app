@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
 import { calculateEstimatedOrder, calculateCommissionBreakdown, generateOrderNumber, effectivePrice } from "@/lib/pricing";
-import { getNotificationProvider } from "@/lib/providers/notification";
+import { notifyAdmins, getNotificationProvider } from "@/lib/providers/notification";
 import { evaluateCoupon } from "@/lib/coupons";
 
 const DEFAULT_COMMISSION_RATE = Number(process.env.DEFAULT_COMMISSION_RATE ?? 10);
@@ -155,6 +155,17 @@ export async function POST(req: Request) {
     orderId: order.id,
     title: "Order confirmed",
     message: `${order.orderNumber} is confirmed. ${dryCleaner.businessName} will be assigned for pickup shortly.`,
+  });
+  await getNotificationProvider().send({
+    userId: dryCleaner.ownerId,
+    orderId: order.id,
+    title: "New order",
+    message: `${order.orderNumber}: a new order worth Rs ${Math.round(Number(order.estimatedTotal))} was placed. Open the app to arrange pickup.`,
+  });
+  await notifyAdmins({
+    orderId: order.id,
+    title: "New order",
+    message: `${order.orderNumber} placed with ${dryCleaner.businessName}.`,
   });
 
   return NextResponse.json(

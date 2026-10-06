@@ -6,6 +6,7 @@ import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import CouponAdmin from "@/components/CouponAdmin";
 import PayoutAdmin from "@/components/PayoutAdmin";
 import AllOrdersAdmin from "@/components/AllOrdersAdmin";
+import PushSetup from "@/components/PushSetup";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -203,6 +204,7 @@ export default function AdminDashboard() {
         <button className="ff-btn ff-btn-outline" onClick={logout}>Log out</button>
       </div>
 
+      <PushSetup app="admin" />
       {error && (
         <div className="ff-card" style={{ padding: 12, marginBottom: 16, borderColor: "#fecaca", background: "#fef2f2", color: "#b91c1c", fontSize: 13 }}>
           {error}

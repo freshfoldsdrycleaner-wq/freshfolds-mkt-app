@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
+import { notifyAdmins } from "@/lib/providers/notification";
 
 const bodySchema = z.object({ ref: z.string().trim().max(40).optional() });
 
@@ -35,6 +36,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   await prisma.order.update({
     where: { id: order.id },
     data: { advanceClaimedAt: new Date(), advanceRef: parsed.data.ref || null },
+  });
+  await notifyAdmins({
+    orderId: order.id,
+    title: "Advance payment to confirm",
+    message: `${order.orderNumber}: customer says the advance is paid. Check your UPI app and confirm.`,
   });
   return NextResponse.json({ ok: true });
 }
