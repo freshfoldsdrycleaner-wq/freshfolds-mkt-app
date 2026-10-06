@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
 import OrderPhotos from "@/components/OrderPhotos";
+import { FF_UPI_ID, upiLink } from "@/lib/upi";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -474,7 +475,7 @@ export default function CustomerApp() {
             {coupon && <p style={{ fontSize: 12, color: "#059669", marginBottom: 8 }}>Offer applied. You save {inr(coupon.discountAmount)}.</p>}
             <div style={{ height: 8 }} />
             <p style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", padding: 8, borderRadius: 8, marginBottom: 12 }}>
-              Nothing is charged now. You pay the dry-cleaner directly (cash or UPI) once your clothes are ready.
+              After you place the order you will pay a 20% advance to Fresh Folds by UPI. The balance is paid once your clothes are ready.
             </p>
             <label className="ff-label">Pickup address</label>
             <input className="ff-input" style={{ marginBottom: 6 }} value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Flat, street, area" />
@@ -516,6 +517,31 @@ export default function CustomerApp() {
             <div style={{ width: 56, height: 56, borderRadius: 999, background: "#dcfce7", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 28 }}>✓</div>
             <h2 style={{ margin: "0 0 4px" }}>Order confirmed</h2>
             <p style={{ color: "#94a3b8", marginBottom: 20 }}>{lastOrder.orderNumber}</p>
+            {lastOrder.amountPaid <= 0 && lastOrder.balanceDue > 0 && (
+              <div className="ff-card" style={{ padding: 14, textAlign: "left", marginBottom: 16, background: "#eff6ff" }}>
+                <p style={{ fontWeight: 700, marginBottom: 4 }}>Pay your 20% advance: {inr(Math.round(lastOrder.balanceDue * 0.2))}</p>
+                <p style={{ fontSize: 12, color: "#475569", marginBottom: 10 }}>
+                  Pay to Fresh Folds now, or at pickup. Show the payment-success screen to the dry-cleaner. The rest is paid after your clothes are ready.
+                </p>
+                <a
+                  className="ff-btn ff-btn-primary"
+                  style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 8 }}
+                  href={upiLink(Math.round(lastOrder.balanceDue * 0.2), "Advance " + lastOrder.orderNumber)}
+                >
+                  Pay {inr(Math.round(lastOrder.balanceDue * 0.2))} with UPI app
+                </a>
+                <p style={{ fontSize: 12, color: "#475569", textAlign: "center", marginBottom: 6 }}>
+                  or scan with any UPI app · UPI ID: <b>{FF_UPI_ID}</b>
+                </p>
+                <div style={{ textAlign: "center" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/freshfolds-upi-qr.png" alt="Fresh Folds UPI QR" style={{ width: 150, height: 150 }} />
+                </div>
+                <p style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                  Add the order number {lastOrder.orderNumber} in the payment note if your app allows.
+                </p>
+              </div>
+            )}
             <div className="ff-card" style={{ padding: 14, textAlign: "left", marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}><span>Paid so far</span><span>{inr(lastOrder.amountPaid)}</span></div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>Balance due</span><span>{inr(lastOrder.balanceDue)}</span></div>
