@@ -352,14 +352,23 @@ export default function CustomerApp() {
   if (!ready) return null;
 
   return (
-    <main style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <div style={{ padding: "16px 16px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12 }}>FF</div>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>Fresh Fold</span>
+    <main className="cx" style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "0 16px" }}>
+        <div className="cx-hero">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="cx-logo">FF</div>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>Fresh Folds</span>
+            </div>
+            {profile?.name && <span style={{ fontSize: 12, color: "#c9ecee" }}>Hi, {profile.name.split(" ")[0]}</span>}
           </div>
-          {profile?.name && <span style={{ fontSize: 12, color: "#64748b" }}>Hi, {profile.name.split(" ")[0]}</span>}
+          <h1>Clothes picked up. Cleaned. Back at your door.</h1>
+          <p>Book a trusted dry-cleaner near you in a minute.</p>
+          <div className="cx-perks">
+            <span className="cx-perk">Free pickup &amp; delivery</span>
+            <span className="cx-perk">Photos at pickup</span>
+            <span className="cx-perk">Rated by customers</span>
+          </div>
         </div>
         <PushSetup app="customer" />
         {error && (
@@ -392,18 +401,21 @@ export default function CustomerApp() {
             {areaMsg && <p style={{ fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>{areaMsg}</p>}
             <div style={{ height: 4 }} />
             {!vendors ? (
-              <p style={{ color: "#94a3b8" }}>Loading…</p>
+              <>{[0, 1, 2].map((k) => <div key={k} className="cx-skel" style={{ height: 86, marginBottom: 10 }} />)}</>
             ) : vendors.length === 0 ? (
               <p style={{ color: "#94a3b8" }}>No approved dry-cleaners within range yet.</p>
             ) : (
               vendors.map((v) => (
-                <button key={v.id} onClick={() => openVendor(v.id)} className="ff-card" style={{ width: "100%", textAlign: "left", padding: 14, marginBottom: 10, display: "block" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontWeight: 600 }}>{v.businessName}</span>
-                    {v.rating != null && <span style={{ fontSize: 12, color: "#f59e0b" }}>★ {v.rating}</span>}
+                <button key={v.id} onClick={() => openVendor(v.id)} className="ff-card" style={{ width: "100%", textAlign: "left", padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "center" }}>
+                  <div className="cx-avatar">{(v.businessName || "?").trim().charAt(0).toUpperCase()}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{v.businessName}</span>
+                      {v.rating != null && <span className="cx-rate">★ {v.rating}{v.reviewCount ? ` (${v.reviewCount})` : ""}</span>}
+                    </div>
+                    <p style={{ fontSize: 12, color: "#4b6b7a", margin: "4px 0" }}>{v.distanceKm} km away · Pickup in {v.estimatedPickupMinutes} mins</p>
+                    {v.startingPrice != null && <p style={{ fontSize: 13, color: "#0a6f7a", fontWeight: 700, margin: 0 }}>From {inr(v.startingPrice)}</p>}
                   </div>
-                  <p style={{ fontSize: 12, color: "#94a3b8", margin: "4px 0" }}>{v.distanceKm} km • Pickup in {v.estimatedPickupMinutes} mins</p>
-                  {v.startingPrice != null && <p style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, margin: 0 }}>From {inr(v.startingPrice)}</p>}
                 </button>
               ))
             )}
@@ -562,7 +574,7 @@ export default function CustomerApp() {
           <>
             <p style={{ fontSize: 12, color: "#94a3b8", margin: "12px 0" }}>Your orders</p>
             {!orders ? (
-              <p style={{ color: "#94a3b8" }}>Loading…</p>
+              <>{[0, 1].map((k) => <div key={k} className="cx-skel" style={{ height: 64, marginBottom: 10 }} />)}</>
             ) : orders.length === 0 ? (
               <p style={{ color: "#94a3b8" }}>No orders yet — place one from Home.</p>
             ) : (
@@ -640,15 +652,28 @@ export default function CustomerApp() {
             </div>
 
             <p className="ff-label">Order progress</p>
-            {STAGES.map((s, i) => {
+            {(() => {
               const idx = STAGES.indexOf(openOrder.status);
+              const phases = [["Pickup", 3], ["Cleaning", 8], ["Payment", 10], ["Delivery", 14]] as [string, number][];
               return (
-                <div key={s} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 99, background: i <= idx ? "#2563eb" : "#e2e8f0" }} />
-                  <span style={{ fontSize: 12, color: i <= idx ? "#0f172a" : "#94a3b8" }}>{STAGE_LABELS[s]}</span>
-                </div>
+                <>
+                  <div className="cx-phases">
+                    {phases.map(([label, last], k) => {
+                      const start = k === 0 ? 0 : phases[k - 1][1] + 1;
+                      return <div key={label} className={`cx-phase ${idx >= start ? "on" : ""}`}><i />{label}</div>;
+                    })}
+                  </div>
+                  <div className="ff-card" style={{ padding: 14 }}>
+                    {STAGES.map((st, i) => (
+                      <div key={st} className={`cx-step ${i < idx ? "done" : i === idx ? "now" : ""}`}>
+                        <div className="cx-dot" />
+                        <span style={{ fontSize: 13, fontWeight: i === idx ? 700 : 500, color: i <= idx ? "#0b2a3c" : "#7b97a3" }}>{STAGE_LABELS[st]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
               );
-            })}
+            })()}
           </>
         )}
 
@@ -662,14 +687,15 @@ export default function CustomerApp() {
         )}
       </div>
 
-      <div style={{ position: "sticky", bottom: 0, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "space-around", padding: "10px 0" }}>
-        {(["home", "orders", "profile"] as Tab[]).map((t) => (
+      <div className="cx-nav">
+        {([["home", "Home", "🏠"], ["orders", "Orders", "🧺"], ["profile", "Profile", "👤"]] as [Tab, string, string][]).map(([t, label, icon]) => (
           <button
             key={t}
+            className={tab === t ? "on" : ""}
             onClick={() => { setTab(t); if (t === "home") setScreen("list"); if (t === "orders") setOpenOrder(null); }}
-            style={{ background: "none", border: "none", fontWeight: 600, fontSize: 13, textTransform: "capitalize", color: tab === t ? "#2563eb" : "#94a3b8", cursor: "pointer" }}
           >
-            {t}
+            <span>{icon}</span>
+            {label}
           </button>
         ))}
       </div>
