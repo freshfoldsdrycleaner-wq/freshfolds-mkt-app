@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
 import { FF_UPI_ID, upiLink } from "@/lib/upi";
+import ClaimPaid from "@/components/ClaimPaid";
 
 type Props = {
   orderId: string;
@@ -14,6 +15,8 @@ type Props = {
 type OrderInfo = {
   estimatedTotal: number;
   balanceDue: number | null;
+  amountPaid?: number;
+  advanceClaimedAt?: string | null;
   pickupAddress?: string;
   customer?: { name: string | null; phone: string };
   contactName?: string | null;
@@ -42,7 +45,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
         if (!alive) return;
         setInfo(d.order);
         if (app === "dryclean") {
-          setAdvance(String(Math.round(Number(d.order.estimatedTotal) * 0.2)));
+          setAdvance(String(Math.max(0, Math.round(Number(d.order.estimatedTotal) * 0.2) - Number(d.order.amountPaid || 0))));
         }
       })
       .catch(() => {});
@@ -221,7 +224,8 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
           >
             Pay with UPI app
           </a>
-          <p style={{ fontSize: 11, color: "#64748b" }}>UPI ID: {FF_UPI_ID}</p>
+          <p style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>UPI ID: {FF_UPI_ID}</p>
+          <ClaimPaid orderId={orderId} paid={Number(info.amountPaid || 0) > 0} claimed={!!info.advanceClaimedAt} />
         </div>
       )}
 
@@ -417,7 +421,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
             onChange={(e) => setAdvance(e.target.value)}
           />
           <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-            Pre-filled with 20% of the estimate. Change it if you collected a different amount.
+            Pre-filled with 20% of the estimate, minus anything already paid to Fresh Folds. Change it if you collected a different amount.
           </p>
           <button
             className="ff-btn ff-btn-primary"

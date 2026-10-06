@@ -13,12 +13,52 @@ interface Row {
   history: { id: string; amount: number; note: string | null; createdAt: string }[];
 }
 
+interface Claim {
+  orderId: string;
+  orderNumber: string;
+  customerName: string | null;
+  customerPhone: string;
+  dryCleaner: string;
+  ref: string | null;
+  claimedAt: string;
+  suggestedAmount: number;
+}
+
 const inr = (n: number) => "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 export default function PayoutAdmin() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [msg, setMsg] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [claimAmt, setClaimAmt] = useState<Record<string, string>>({});
+
+  const loadClaims = useCallback(async () => {
+    try {
+      const d = await apiFetch<{ claims: Claim[] }>("/api/admin/advance", "admin");
+      setClaims(d.claims);
+    } catch {}
+  }, []);
+
+  async function decide(c: Claim, reject: boolean) {
+    const amount = Number(claimAmt[c.orderId] ?? c.suggestedAmount);
+    if (!reject && (!Number.isFinite(amount) || amount <= 0)) {
+      setMsg("Enter the amount you received.");
+      return;
+    }
+    if (reject && !window.confirm("Tell the customer you did not receive this payment?")) return;
+    setMsg("");
+    try {
+      await apiFetch("/api/admin/advance", "admin", {
+        method: "POST",
+        body: JSON.stringify({ orderId: c.orderId, amount: reject ? 1 : amount, reject }),
+      });
+      loadClaims();
+      load();
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : "Could not update.");
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -31,7 +71,8 @@ export default function PayoutAdmin() {
 
   useEffect(() => {
     load();
-  }, [load]);
+    loadClaims();
+  }, [load, loadClaims]);
 
   async function pay(r: Row) {
     const amount = Number(amounts[r.dryCleanerId] ?? r.owed);
@@ -54,6 +95,35 @@ export default function PayoutAdmin() {
 
   return (
     <section>
+      <p style={{ fontWeight: 700, marginBottom: 6 }}>Advance payments to confirm</p>
+      {claims.length === 0 ? (
+        <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>None waiting.</p>
+      ) : (
+        claims.map((c) => (
+          <div key={c.orderId} className="ff-card" style={{ padding: 12, marginBottom: 10, background: "#fffbeb" }}>
+            <p style={{ fontWeight: 600 }}>{c.orderNumber} · {c.dryCleaner}</p>
+            <p style={{ fontSize: 12, color: "#475569", marginBottom: 6 }}>
+              {c.customerName || "Customer"} · {c.customerPhone}
+              {c.ref ? " · UPI ref: " + c.ref : ""}
+            </p>
+            <p style={{ fontSize: 11, color: "#92400e", marginBottom: 6 }}>
+              Check your UPI app first. Confirm only if the money has arrived.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="ff-input"
+                type="number"
+                inputMode="decimal"
+                value={claimAmt[c.orderId] ?? String(c.suggestedAmount)}
+                onChange={(e) => setClaimAmt((a) => ({ ...a, [c.orderId]: e.target.value }))}
+              />
+              <button className="ff-btn ff-btn-primary" onClick={() => decide(c, false)}>Received</button>
+              <button className="ff-btn ff-btn-outline" onClick={() => decide(c, true)}>Not received</button>
+            </div>
+          </div>
+        ))
+      )}
+      <p style={{ fontWeight: 700, margin: "16px 0 6px" }}>Money owed to dry-cleaners</p>
       <p style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
         Advances customers paid to your UPI, minus your commission. After you send the dry-cleaner their share, tap
         &quot;Mark paid&quot; so the balance goes down.

@@ -58,6 +58,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       commissionAmount: order.commissionAmount ? Number(order.commissionAmount) : null,
       dryCleanerNetAmount: order.dryCleanerNetAmount ? Number(order.dryCleanerNetAmount) : null,
       amountPaid: Number(order.amountPaid),
+      advanceClaimedAt: order.advanceClaimedAt,
       balanceDue: order.balanceDue ? Number(order.balanceDue) : null,
       items: order.items.map((i) => ({
         ...i,

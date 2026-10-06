@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
 import OrderPhotos from "@/components/OrderPhotos";
+import ClaimPaid from "@/components/ClaimPaid";
 import { FF_UPI_ID, upiLink } from "@/lib/upi";
 
 const inr = (n: number | null | undefined) =>
@@ -88,7 +89,7 @@ export default function CustomerApp() {
   const [forOther, setForOther] = useState(false);
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [lastOrder, setLastOrder] = useState<{ orderNumber: string; amountPaid: number; balanceDue: number } | null>(null);
+  const [lastOrder, setLastOrder] = useState<{ id: string; orderNumber: string; amountPaid: number; balanceDue: number } | null>(null);
 
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
   const [openOrder, setOpenOrder] = useState<OrderDetail | null>(null);
@@ -291,7 +292,7 @@ export default function CustomerApp() {
     setError("");
     setPlacingOrder(true);
     try {
-      const data = await apiFetch<{ order: { orderNumber: string; amountPaid: number; balanceDue: number } }>(
+      const data = await apiFetch<{ order: { id: string; orderNumber: string; amountPaid: number; balanceDue: number } }>(
         "/api/orders",
         "customer",
         {
@@ -537,9 +538,10 @@ export default function CustomerApp() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/freshfolds-upi-qr.png" alt="Fresh Folds UPI QR" style={{ width: 150, height: 150 }} />
                 </div>
-                <p style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                <p style={{ fontSize: 11, color: "#64748b", marginTop: 6, marginBottom: 10 }}>
                   Add the order number {lastOrder.orderNumber} in the payment note if your app allows.
                 </p>
+                <ClaimPaid orderId={lastOrder.id} />
               </div>
             )}
             <div className="ff-card" style={{ padding: 14, textAlign: "left", marginBottom: 16 }}>

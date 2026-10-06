@@ -187,6 +187,8 @@ model Order {
   pickupAddress String 
   deliveryAddress String 
   preferredPickupAt DateTime? 
+  advanceClaimedAt DateTime? // customer says they paid the advance to Fresh Folds UPI; admin confirms
+  advanceRef String?
   contactName String?  // set when ordering for someone else (e.g. a relative in another city)
   contactPhone String?
  
