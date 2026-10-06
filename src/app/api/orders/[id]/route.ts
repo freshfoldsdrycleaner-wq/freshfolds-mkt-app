@@ -49,6 +49,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       deliveryAddress: order.deliveryAddress,
       preferredPickupAt: order.preferredPickupAt,
       estimatedTotal: Number(order.estimatedTotal),
+      couponCode: order.couponCode,
+      discountAmount: Number(order.discountAmount),
       finalTotal: order.finalTotal ? Number(order.finalTotal) : null,
       commissionRate: Number(order.commissionRate),
       commissionAmount: order.commissionAmount ? Number(order.commissionAmount) : null,

@@ -38,6 +38,7 @@ interface OrderRow {
 }
 interface OrderDetail extends OrderRow {
   pickupAddress: string; deliveryAddress: string; preferredPickupAt: string | null;
+  couponCode?: string | null; discountAmount?: number;
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
 }
 
@@ -474,6 +475,11 @@ export default function DryCleanDashboard() {
                 {openOrder.items.map((it, i) => (
                   <div key={i} style={{ fontSize: 13, marginBottom: 2 }}>{it.itemName} ({it.serviceName}) × {it.quantity} — {inr(it.estimatedPrice)}</div>
                 ))}
+                {openOrder.couponCode && Number(openOrder.discountAmount || 0) > 0 && (
+                  <div style={{ fontSize: 13, marginTop: 4, color: "#059669" }}>
+                    Offer {openOrder.couponCode}: customer gets {inr(openOrder.discountAmount)} off (already included in the totals below).
+                  </div>
+                )}
               </div>
               <div style={{ marginBottom: 16 }}>
                 <p className="ff-label">Pickup address</p>
@@ -527,6 +533,9 @@ export default function DryCleanDashboard() {
 
               <div style={{ marginBottom: 16 }}>
                 <p className="ff-label">Post-inspection price correction</p>
+                {openOrder.couponCode && Number(openOrder.discountAmount || 0) > 0 && (
+                  <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>Enter the full price of the work. The offer discount is subtracted automatically.</p>
+                )}
                 <div style={{ display: "flex", gap: 8 }}>
                   <input className="ff-input" value={finalTotalInput} onChange={(e) => setFinalTotalInput(e.target.value)} type="number" />
                   <button className="ff-btn ff-btn-outline" onClick={submitFinalPrice}>Update</button>

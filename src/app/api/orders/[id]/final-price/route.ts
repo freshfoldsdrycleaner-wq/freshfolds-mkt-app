@@ -42,8 +42,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  // The dry-cleaner enters the real value of the work (before any offer).
+  // Any offer code discount locked in at booking is subtracted here.
+  const discount = Number(order.discountAmount ?? 0);
+  const payableTotal = Math.max(0, Math.round((parsed.data.finalTotal - discount) * 100) / 100);
+
   const breakdown = recalculateAfterFinalPrice(
-    parsed.data.finalTotal,
+    payableTotal,
     Number(order.commissionRate),
     Number(order.amountPaid)
   );
@@ -52,7 +57,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const o = await tx.order.update({
       where: { id: order.id },
       data: {
-        finalTotal: parsed.data.finalTotal,
+        finalTotal: payableTotal,
         commissionAmount: breakdown.commissionAmount,
         dryCleanerNetAmount: breakdown.dryCleanerNetAmount,
         balanceDue: breakdown.customerBalanceDue,
@@ -63,7 +68,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         orderId: order.id,
         dryCleanerId: order.dryCleanerId,
         commissionRate: order.commissionRate,
-        orderValue: parsed.data.finalTotal,
+        orderValue: payableTotal,
         commissionAmount: breakdown.commissionAmount,
         dryCleanerNetAmount: breakdown.dryCleanerNetAmount,
       },
@@ -75,7 +80,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     userId: order.customerId,
     orderId: order.id,
     title: "Order total updated",
-    message: `${order.orderNumber}: final total is now ${parsed.data.finalTotal}. Remaining balance: ${breakdown.customerBalanceDue}.`,
+    message: `${order.orderNumber}: final total is now ${payableTotal}. Remaining balance: ${breakdown.customerBalanceDue}.`,
   });
 
   return NextResponse.json({

@@ -13,6 +13,7 @@ type Props = {
 type OrderInfo = {
   estimatedTotal: number;
   balanceDue: number | null;
+  pickupAddress?: string;
   customer?: { name: string | null; phone: string };
   dryCleaner?: { name: string; phone?: string | null };
 };
@@ -42,6 +43,23 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
       alive = false;
     };
   }, [orderId, app]);
+
+  function shareMyLocation() {
+    setMsg("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setMsg("Your phone does not support sharing location.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const link =
+          "https://maps.google.com/?q=" + pos.coords.latitude.toFixed(6) + "," + pos.coords.longitude.toFixed(6);
+        setPickup((prev) => (prev.trim() ? prev.trim() + " | Location: " + link : "Location: " + link));
+      },
+      () => setMsg("Could not get your location. Please allow location access and try again."),
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
 
   async function cancelOrder() {
     if (!window.confirm("Cancel this order? This cannot be undone.")) return;
@@ -117,6 +135,9 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   const digits = info?.customer?.phone ? info.customer.phone.replace(/\D/g, "") : "";
   const waNumber = digits.length === 10 ? "91" + digits : digits;
 
+  const mapsMatch = info?.pickupAddress ? info.pickupAddress.match(/https?:\/\/\S+/) : null;
+  const mapsLink = mapsMatch ? mapsMatch[0] : "";
+
   const dcDigits = info?.dryCleaner?.phone ? info.dryCleaner.phone.replace(/\D/g, "") : "";
   const dcWa = dcDigits.length === 10 ? "91" + dcDigits : dcDigits;
 
@@ -188,6 +209,21 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
         </div>
       )}
 
+      {app === "dryclean" && mapsLink && (
+        <div style={{ marginBottom: 12 }}>
+          <p className="ff-label">Pickup location</p>
+          <a
+            className="ff-btn ff-btn-primary"
+            style={{ display: "block", textAlign: "center", textDecoration: "none" }}
+            href={mapsLink}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            📍 Open customer location in Maps
+          </a>
+        </div>
+      )}
+
       {app === "dryclean" && (
         <div style={{ marginBottom: 12 }}>
           <p className="ff-label">I will pick up myself</p>
@@ -228,6 +264,13 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
         <div style={{ marginBottom: 8 }}>
           <label className="ff-label">New pickup address (leave blank to keep)</label>
           <input className="ff-input" value={pickup} onChange={(e) => setPickup(e.target.value)} />
+          <button
+            className="ff-btn ff-btn-outline"
+            style={{ width: "100%", margin: "6px 0 10px" }}
+            onClick={shareMyLocation}
+          >
+            📍 Share my current location
+          </button>
           <label className="ff-label">New delivery address (leave blank to keep)</label>
           <input className="ff-input" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
           <label className="ff-label">New preferred pickup time (optional)</label>

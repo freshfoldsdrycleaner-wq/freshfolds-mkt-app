@@ -40,6 +40,7 @@ interface OrderRow {
 interface Defect { defectType: string; description: string | null; photoUrl: string | null; }
 interface OrderDetail extends OrderRow {
   pickupAddress: string; deliveryAddress: string; preferredPickupAt: string | null;
+  couponCode?: string | null; discountAmount?: number;
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
   defects: Defect[];
   pickupConditionConfirmedAt?: string | null;
@@ -74,6 +75,9 @@ export default function CustomerApp() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [preferredPickupAt, setPreferredPickupAt] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<{ code: string; discountAmount: number; label: string } | null>(null);
+  const [couponMsg, setCouponMsg] = useState("");
   const [lastOrder, setLastOrder] = useState<{ orderNumber: string; amountPaid: number; balanceDue: number } | null>(null);
 
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
@@ -167,6 +171,41 @@ export default function CustomerApp() {
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const cartSubtotal = cartItems.reduce((s, i) => s + i.effectivePrice * i.qty, 0);
 
+  async function applyCoupon() {
+    if (!couponInput.trim()) return;
+    setCouponMsg("");
+    try {
+      const data = await apiFetch<{ code: string; discountAmount: number; label: string }>(
+        "/api/coupons/validate",
+        "customer",
+        { method: "POST", body: JSON.stringify({ code: couponInput.trim(), subtotal: cartSubtotal }) }
+      );
+      setCoupon(data);
+    } catch (e) {
+      setCoupon(null);
+      if (!handleAuthError(e)) setCouponMsg(e instanceof ApiError ? e.message : "Could not check the code.");
+    }
+  }
+
+  function shareMyLocation() {
+    setError("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError("Your phone does not support sharing location.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const link = "https://maps.google.com/?q=" + pos.coords.latitude.toFixed(6) + "," + pos.coords.longitude.toFixed(6);
+        setPickupAddress((prev) => {
+          const base = prev.replace(/\s*\|?\s*(My )?[Ll]ocation: ?https?:\/\/\S+/g, "").trim();
+          return base ? base + " | Location: " + link : "Location: " + link;
+        });
+      },
+      () => setError("Could not get your location. Please allow location access and try again."),
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
+
   async function placeOrder() {
     if (!vendor || !pickupAddress.trim() || !deliveryAddress.trim()) return;
     setError("");
@@ -181,6 +220,7 @@ export default function CustomerApp() {
             dryCleanerId: vendor.id,
             pickupAddress: pickupAddress.trim(),
             deliveryAddress: deliveryAddress.trim(),
+            couponCode: coupon ? coupon.code : undefined,
             preferredPickupAt: preferredPickupAt ? new Date(preferredPickupAt).toISOString() : undefined,
             items: cartItems.map((i) => ({ serviceId: i.id, quantity: i.qty })),
           }),
@@ -308,7 +348,7 @@ export default function CustomerApp() {
 
         {tab === "home" && screen === "checkout" && vendor && (
           <>
-            <button className="ff-btn ff-btn-outline" style={{ marginBottom: 12 }} onClick={() => setScreen("vendor")}>← Back</button>
+            <button className="ff-btn ff-btn-outline" style={{ marginBottom: 12 }} onClick={() => { setCoupon(null); setCouponMsg(""); setScreen("vendor"); }}>← Back</button>
             <h2 style={{ margin: "0 0 12px" }}>Order Summary</h2>
             <div className="ff-card" style={{ padding: 14, marginBottom: 12 }}>
               {cartItems.map((i) => (
@@ -317,15 +357,29 @@ export default function CustomerApp() {
                 </div>
               ))}
               <div style={{ height: 1, background: "#f1f5f9", margin: "8px 0" }} />
+              {coupon && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#059669", marginBottom: 4 }}>
+                  <span>Offer {coupon.code} ({coupon.label})</span><span>− {inr(coupon.discountAmount)}</span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
-                <span>Estimated total</span><span>{inr(cartSubtotal)}</span>
+                <span>Estimated total</span><span>{inr(coupon ? cartSubtotal - coupon.discountAmount : cartSubtotal)}</span>
               </div>
             </div>
+            <label className="ff-label">Offer code (optional)</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+              <input className="ff-input" value={couponInput} onChange={(e) => { setCouponInput(e.target.value); setCoupon(null); }} placeholder="Enter code" />
+              <button className="ff-btn ff-btn-outline" onClick={applyCoupon}>Apply</button>
+            </div>
+            {couponMsg && <p style={{ fontSize: 12, color: "#dc2626", marginBottom: 8 }}>{couponMsg}</p>}
+            {coupon && <p style={{ fontSize: 12, color: "#059669", marginBottom: 8 }}>Offer applied. You save {inr(coupon.discountAmount)}.</p>}
+            <div style={{ height: 8 }} />
             <p style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", padding: 8, borderRadius: 8, marginBottom: 12 }}>
               Nothing is charged now. You pay the dry-cleaner directly (cash or UPI) once your clothes are ready.
             </p>
             <label className="ff-label">Pickup address</label>
-            <input className="ff-input" style={{ marginBottom: 10 }} value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Flat, street, area" />
+            <input className="ff-input" style={{ marginBottom: 6 }} value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Flat, street, area" />
+            <button className="ff-btn ff-btn-outline" style={{ width: "100%", marginBottom: 10 }} onClick={shareMyLocation}>📍 Share my current location</button>
             <label className="ff-label">Delivery address</label>
             <input className="ff-input" style={{ marginBottom: 10 }} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Same or different address" />
             <label className="ff-label">Preferred pickup time (optional)</label>
@@ -420,6 +474,9 @@ export default function CustomerApp() {
                 <div key={i} style={{ fontSize: 13, marginBottom: 2 }}>{it.itemName} ({it.serviceName}) × {it.quantity}</div>
               ))}
               <div style={{ height: 1, background: "#f1f5f9", margin: "8px 0" }} />
+              {openOrder.couponCode && Number(openOrder.discountAmount || 0) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#059669" }}><span>Offer {openOrder.couponCode} applied</span><span>− {inr(openOrder.discountAmount)}</span></div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>Estimated total</span><span>{inr(openOrder.estimatedTotal)}</span></div>
               {openOrder.finalTotal != null && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#92400e" }}><span>Final total</span><span>{inr(openOrder.finalTotal)}</span></div>}
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#059669" }}><span>Paid</span><span>{inr(openOrder.amountPaid)}</span></div>

@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
+import CouponAdmin from "@/components/CouponAdmin";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
-type Tab = "overview" | "drycleaners" | "services" | "ledger";
+type Tab = "overview" | "drycleaners" | "services" | "ledger" | "offers";
 
 interface Stats {
   totalCustomers: number;
@@ -209,6 +210,7 @@ export default function AdminDashboard() {
           ["drycleaners", "Dry-Cleaners" + (stats ? ` (${stats.dryCleanersByStatus.PENDING || 0} pending)` : "")],
           ["services", "Service Changes" + (stats ? ` (${stats.pendingServiceChanges})` : "")],
           ["ledger", "Ledger"],
+          ["offers", "Offers"],
         ] as [Tab, string][]).map(([id, label]) => (
           <button key={id} className={`ff-tab ${tab === id ? "ff-tab-active" : ""}`} onClick={() => setTab(id)}>
             {label}
@@ -326,6 +328,8 @@ export default function AdminDashboard() {
           )}
         </section>
       )}
+
+      {tab === "offers" && <CouponAdmin />}
 
       {tab === "ledger" && (
         <section className="ff-card">

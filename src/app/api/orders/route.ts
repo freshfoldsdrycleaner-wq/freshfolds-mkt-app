@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
 import { calculateEstimatedOrder, calculateCommissionBreakdown, generateOrderNumber, effectivePrice } from "@/lib/pricing";
 import { getNotificationProvider } from "@/lib/providers/notification";
+import { evaluateCoupon } from "@/lib/coupons";
 
 const DEFAULT_COMMISSION_RATE = Number(process.env.DEFAULT_COMMISSION_RATE ?? 10);
 const DEFAULT_BOOKING_PERCENT = Number(process.env.DEFAULT_BOOKING_PAYMENT_PERCENT ?? 20);
@@ -17,6 +18,7 @@ const bodySchema = z.object({
   dryCleanerId: z.string(),
   pickupAddress: z.string().min(3),
   deliveryAddress: z.string().min(3),
+  couponCode: z.string().optional(),
   preferredPickupAt: z.string().datetime().optional(),
   items: z.array(itemSchema).min(1),
 });
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { dryCleanerId, pickupAddress, deliveryAddress, preferredPickupAt, items } = parsed.data;
+  const { dryCleanerId, pickupAddress, deliveryAddress, preferredPickupAt, items, couponCode } = parsed.data;
 
   // Rule 1: can only order from an ACTIVE dry-cleaner.
   const dryCleaner = await prisma.dryCleaner.findUnique({ where: { id: dryCleanerId } });
@@ -78,10 +80,23 @@ export async function POST(req: Request) {
     DEFAULT_BOOKING_PERCENT
   );
 
+  // Optional admin-created offer code: the discount is computed here, on the
+  // server, from the real subtotal. The order total (and commission) are
+  // calculated on the discounted amount.
+  let appliedCode: string | null = null;
+  let discountAmount = 0;
+  if (couponCode && couponCode.trim()) {
+    const result = await evaluateCoupon(couponCode, priced.estimatedTotal, session.userId);
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+    appliedCode = result.code;
+    discountAmount = result.discountAmount;
+  }
+  const orderTotal = Math.round((priced.estimatedTotal - discountAmount) * 100) / 100;
+
   // Commission rate is locked in at booking time (section 61).
   // No money has been collected yet, so the amount already paid is 0.
   const commission = calculateCommissionBreakdown(
-    priced.estimatedTotal,
+    orderTotal,
     DEFAULT_COMMISSION_RATE,
     0
   );
@@ -97,12 +112,14 @@ export async function POST(req: Request) {
         pickupAddress,
         deliveryAddress,
         preferredPickupAt: preferredPickupAt ? new Date(preferredPickupAt) : undefined,
-        estimatedTotal: priced.estimatedTotal,
+        estimatedTotal: orderTotal,
+        couponCode: appliedCode,
+        discountAmount,
         commissionRate: DEFAULT_COMMISSION_RATE,
         commissionAmount: commission.commissionAmount,
         dryCleanerNetAmount: commission.dryCleanerNetAmount,
         amountPaid: 0,
-        balanceDue: priced.estimatedTotal,
+        balanceDue: orderTotal,
         items: {
           create: priced.items.map((i) => ({
             itemName: i.itemName,
@@ -120,7 +137,7 @@ export async function POST(req: Request) {
         orderId: created.id,
         dryCleanerId,
         commissionRate: DEFAULT_COMMISSION_RATE,
-        orderValue: priced.estimatedTotal,
+        orderValue: orderTotal,
         commissionAmount: commission.commissionAmount,
         dryCleanerNetAmount: commission.dryCleanerNetAmount,
       },
