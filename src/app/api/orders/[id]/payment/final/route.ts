@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, UnauthorizedError } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { assertTransition, IllegalOrderTransitionError } from "@/lib/orderStateMachine";
 import { getPaymentProvider } from "@/lib/providers/payment";
 import { getNotificationProvider } from "@/lib/providers/notification";
 
 /**
  * POST /api/orders/:id/payment/final
- * Section 18: the remaining balance is collected here — either the
- * customer pays in-app, or the dry-cleaner confirms cash/UPI collected in
- * person. Either way, payment status is verified server-side (never
- * trusted from the frontend, rule 14) before the order is allowed to move
- * PAYMENT_PENDING -> PAYMENT_COMPLETED.
+ * Soft-launch mode: payment is collected in person (cash/UPI). ONLY the
+ * dry-cleaner who owns the order (or a Fresh Fold admin) can record it as
+ * received. Customers cannot mark their own order paid.
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   let session;
@@ -27,11 +25,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
-  const isCustomer = session.role === "CUSTOMER" && order.customerId === session.userId;
   const isOwner = session.role === "DRYCLEANER_ADMIN" && order.dryCleaner.ownerId === session.userId;
   const isAdmin = session.role === "FRESHFOLD_ADMIN";
-  if (!isCustomer && !isOwner && !isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isOwner && !isAdmin) {
+    return NextResponse.json(
+      { error: "Please pay the dry-cleaner directly (cash or UPI). They will confirm your payment in the app." },
+      { status: 403 }
+    );
   }
 
   if (order.status !== "PAYMENT_PENDING") {
@@ -83,7 +83,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await getNotificationProvider().send({
       userId: order.customerId,
       orderId: order.id,
-      title: "Payment successful",
+      title: "Payment received",
       message: `${order.orderNumber}: payment of ${balanceDue} received. Your order will proceed to delivery.`,
     });
 
