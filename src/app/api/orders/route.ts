@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
 import { calculateEstimatedOrder, calculateCommissionBreakdown, generateOrderNumber, effectivePrice } from "@/lib/pricing";
-import { getPaymentProvider } from "@/lib/providers/payment";
 import { getNotificationProvider } from "@/lib/providers/notification";
 
 const DEFAULT_COMMISSION_RATE = Number(process.env.DEFAULT_COMMISSION_RATE ?? 10);
@@ -24,10 +23,11 @@ const bodySchema = z.object({
 
 /**
  * POST /api/orders
- * Section 7/9/37/55-58: the whole point of this endpoint is that pricing,
- * the 20% booking payment, and the 10% platform commission are ALL computed
- * here from the dry-cleaner's live Service rows and the current
- * PlatformSetting — never from anything the client sent.
+ * Pricing and the platform commission are computed here from the
+ * dry-cleaner's live Service rows — never from anything the client sent.
+ * Soft-launch mode: NO payment is taken or recorded at booking. The order
+ * starts fully unpaid; the dry-cleaner collects cash/UPI directly and
+ * confirms it later via /payment/final.
  */
 export async function POST(req: Request) {
   let session;
@@ -78,12 +78,12 @@ export async function POST(req: Request) {
     DEFAULT_BOOKING_PERCENT
   );
 
-  // Commission rate is locked in at booking time (section 61) — later
-  // admin-wide rate changes never retroactively affect this order.
+  // Commission rate is locked in at booking time (section 61).
+  // No money has been collected yet, so the amount already paid is 0.
   const commission = calculateCommissionBreakdown(
     priced.estimatedTotal,
     DEFAULT_COMMISSION_RATE,
-    priced.bookingPayment
+    0
   );
 
   const orderNumber = generateOrderNumber();
@@ -115,40 +115,9 @@ export async function POST(req: Request) {
       include: { items: true },
     });
 
-    // Section 36: charge the 20% booking payment through the payment
-    // abstraction — status is verified server-side, never assumed.
-    const chargeResult = await getPaymentProvider().charge({
-      orderId: created.id,
-      amount: priced.bookingPayment,
-      purpose: "BOOKING",
-    });
-
-    await tx.payment.create({
-      data: {
-        orderId: created.id,
-        amount: priced.bookingPayment,
-        paymentType: "BOOKING",
-        transactionId: chargeResult.transactionId,
-        status: chargeResult.status,
-      },
-    });
-
-    if (chargeResult.status !== "SUCCESS") {
-      throw new Error("Booking payment failed");
-    }
-
-    const updated = await tx.order.update({
-      where: { id: created.id },
-      data: {
-        amountPaid: priced.bookingPayment,
-        balanceDue: priced.remainingAfterBooking,
-      },
-      include: { items: true },
-    });
-
     await tx.commissionTransaction.create({
       data: {
-        orderId: updated.id,
+        orderId: created.id,
         dryCleanerId,
         commissionRate: DEFAULT_COMMISSION_RATE,
         orderValue: priced.estimatedTotal,
@@ -157,7 +126,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return updated;
+    return created;
   });
 
   await getNotificationProvider().send({
