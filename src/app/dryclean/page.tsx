@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
 import OrderPhotos from "@/components/OrderPhotos";
+import DryCleanerTermsForm from "@/components/DryCleanerTermsForm";
+import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -25,7 +27,7 @@ const STAGE_LABELS: Record<string, string> = {
 
 interface DryCleaner {
   id: string; businessName: string; phone: string; address: string;
-  latitude: number; longitude: number; operatingHours: string | null; status: string; createdAt: string;
+  latitude: number; longitude: number; operatingHours: string | null; status: string; createdAt: string; termsVersion?: string | null;
 }
 interface Service {
   id: string; category: string; itemName: string; serviceName: string;
@@ -305,6 +307,17 @@ export default function DryCleanDashboard() {
   }
 
   if (!ready) return null;
+
+  if (dc && dc.termsVersion !== TERMS_VERSION) {
+    return (
+      <main style={{ maxWidth: 640, margin: "0 auto", padding: "24px 16px 60px" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <button className="ff-btn ff-btn-outline" onClick={logout}>Log out</button>
+        </div>
+        <DryCleanerTermsForm businessName={dc.businessName} onAccepted={loadProfile} />
+      </main>
+    );
+  }
 
   return (
     <main style={{ maxWidth: 1000, margin: "0 auto", padding: "24px 20px 60px" }}>

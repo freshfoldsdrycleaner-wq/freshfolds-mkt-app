@@ -35,6 +35,9 @@ export async function GET(req: Request) {
       status: dc.status,
       ownerName: dc.owner.name,
       ownerPhone: dc.owner.phone,
+      termsVersion: dc.termsVersion,
+      termsAcceptedAt: dc.termsAcceptedAt,
+      termsAcceptedBy: dc.termsAcceptedBy,
       createdAt: dc.createdAt,
     })),
   });

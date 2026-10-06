@@ -63,6 +63,28 @@ export default function AllOrdersAdmin() {
   const [status, setStatus] = useState("ALL");
   const [open, setOpen] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+
+  async function cancelOrder(o: Order) {
+    setCancelBusy(true);
+    setMsg("");
+    try {
+      const r = await apiFetch<{ refundDue?: number }>("/api/orders/" + o.id + "/cancel", "admin", { method: "POST" });
+      setConfirmCancel(null);
+      await load();
+      if (r.refundDue && r.refundDue > 0) {
+        setMsg("Order cancelled. Remember to refund " + inr(r.refundDue) + " to the customer " + o.customer.phone + ".");
+      } else {
+        setMsg("Order cancelled.");
+      }
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : "Could not cancel.");
+      setConfirmCancel(null);
+    } finally {
+      setCancelBusy(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setMsg("");
@@ -204,6 +226,29 @@ export default function AllOrdersAdmin() {
                     <Row k="Pickup photos" v={o.photos} />
                     <Row k="Placed" v={when(o.createdAt)} />
                     <Row k="Last updated" v={when(o.updatedAt)} />
+                    {["ORDER_PLACED", "PICKUP_ASSIGNED", "PICKUP_IN_PROGRESS"].includes(o.status) && (
+                      <div style={{ marginTop: 12 }}>
+                        {confirmCancel === o.id ? (
+                          <div style={{ padding: 10, background: "#fef2f2", borderRadius: 8 }}>
+                            <p style={{ fontSize: 13, marginBottom: 8, color: "#b91c1c" }}>
+                              Cancel {o.orderNumber}?{o.amountPaid > 0 ? " An advance of " + inr(o.amountPaid) + " was paid and must be refunded by you." : ""} The customer and dry-cleaner will be notified.
+                            </p>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button className="ff-btn ff-btn-danger" style={{ flex: 1 }} disabled={cancelBusy} onClick={() => cancelOrder(o)}>
+                                Yes, cancel order
+                              </button>
+                              <button className="ff-btn ff-btn-outline" style={{ flex: 1 }} onClick={() => setConfirmCancel(null)}>
+                                No, keep it
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button className="ff-btn ff-btn-outline" style={{ width: "100%", color: "#dc2626" }} onClick={() => setConfirmCancel(o.id)}>
+                            Cancel this order
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

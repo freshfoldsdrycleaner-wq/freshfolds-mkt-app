@@ -35,6 +35,9 @@ interface DryCleaner {
   ownerName: string | null;
   ownerPhone: string;
   createdAt: string;
+  termsVersion?: string | null;
+  termsAcceptedAt?: string | null;
+  termsAcceptedBy?: string | null;
 }
 interface PendingService {
   id: string;
@@ -275,7 +278,7 @@ export default function AdminDashboard() {
               <tbody>
                 {dryCleaners.map((dc) => (
                   <tr key={dc.id}>
-                    <td><div style={{ fontWeight: 600 }}>{dc.businessName}</div><div style={{ color: "#94a3b8" }}>{dc.address}</div></td>
+                    <td><div style={{ fontWeight: 600 }}>{dc.businessName}</div><div style={{ color: "#94a3b8" }}>{dc.address}</div><div style={{ color: dc.termsAcceptedAt ? "#059669" : "#b45309", fontSize: 12 }}>{dc.termsAcceptedAt ? "Terms accepted by " + (dc.termsAcceptedBy || "owner") + " on " + new Date(dc.termsAcceptedAt).toLocaleDateString("en-IN") : "Terms not accepted yet"}</div></td>
                     <td>{dc.ownerName || "—"}<div style={{ color: "#94a3b8" }}>{dc.ownerPhone}</div></td>
                     <td><Badge tone={statusTone(dc.status)}>{dc.status}</Badge></td>
                     <td style={{ color: "#94a3b8" }}>{new Date(dc.createdAt).toLocaleDateString("en-IN")}</td>

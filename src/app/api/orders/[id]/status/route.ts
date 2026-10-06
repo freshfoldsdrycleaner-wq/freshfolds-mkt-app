@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
 import { requireSession, UnauthorizedError, ForbiddenError } from "@/lib/auth";
 import { assertTransition, IllegalOrderTransitionError } from "@/lib/orderStateMachine";
 import { getNotificationProvider } from "@/lib/providers/notification";
@@ -51,6 +52,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
   if (!isOwnerDryCleaner && !isAdmin && !isAssignedDelivery) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (isOwnerDryCleaner) {
+    const dcTerms = await prisma.dryCleaner.findUnique({ where: { id: order.dryCleanerId }, select: { termsVersion: true } });
+    if (dcTerms?.termsVersion !== TERMS_VERSION) {
+      return NextResponse.json({ error: "Please accept the partner terms in the app first." }, { status: 403 });
+    }
   }
 
   try {

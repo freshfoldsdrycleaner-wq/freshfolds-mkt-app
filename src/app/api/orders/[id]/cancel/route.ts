@@ -31,7 +31,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "You cannot cancel this order." }, { status: 403 });
   }
 
-  if (order.status !== "ORDER_PLACED") {
+  const adminCancellable = ["ORDER_PLACED", "PICKUP_ASSIGNED", "PICKUP_IN_PROGRESS"].includes(order.status);
+  if (order.status !== "ORDER_PLACED" && !(isAdmin && adminCancellable)) {
     return NextResponse.json(
       { error: "This order can no longer be cancelled because pickup has already started." },
       { status: 409 }
@@ -62,11 +63,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         userId: order.customerId,
         orderId: order.id,
         title: "Order cancelled",
-        message: `${order.orderNumber} was cancelled by the dry-cleaner.`,
+        message: isAdmin
+          ? `${order.orderNumber} was cancelled by Fresh Folds.`
+          : `${order.orderNumber} was cancelled by the dry-cleaner.`,
       });
+      if (isAdmin) {
+        await notifier.send({
+          userId: order.dryCleaner.ownerId,
+          orderId: order.id,
+          title: "Order cancelled",
+          message: `${order.orderNumber} was cancelled by Fresh Folds.`,
+        });
+      }
     }
 
-    return NextResponse.json({ order: { id: order.id, status: nextStatus } });
+    return NextResponse.json({
+      order: { id: order.id, status: nextStatus },
+      refundDue: Number(order.amountPaid),
+    });
   } catch (e) {
     if (e instanceof IllegalOrderTransitionError) {
       return NextResponse.json({ error: e.message }, { status: 409 });

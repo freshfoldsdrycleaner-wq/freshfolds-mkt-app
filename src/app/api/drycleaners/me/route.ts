@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       longitude: dryCleaner.longitude,
       operatingHours: dryCleaner.operatingHours,
       status: dryCleaner.status,
+      termsVersion: dryCleaner.termsVersion,
       createdAt: dryCleaner.createdAt,
     },
   });

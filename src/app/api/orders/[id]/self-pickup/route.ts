@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
 import { requireSession } from "@/lib/auth";
 import { assertTransition, IllegalOrderTransitionError } from "@/lib/orderStateMachine";
 import { FF_ADVANCE_PREFIX } from "@/lib/upi";
@@ -41,6 +42,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const isOwner = session.role === "DRYCLEANER_ADMIN" && order.dryCleaner.ownerId === session.userId;
   const isAdmin = session.role === "FRESHFOLD_ADMIN";
   if (!isOwner && !isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (isOwner) {
+    const dcTerms = await prisma.dryCleaner.findUnique({ where: { id: order.dryCleanerId }, select: { termsVersion: true } });
+    if (dcTerms?.termsVersion !== TERMS_VERSION) {
+      return NextResponse.json({ error: "Please accept the partner terms in the app first." }, { status: 403 });
+    }
+  }
 
   if (order.status !== "ORDER_PLACED") {
     return NextResponse.json({ error: "Pickup can only be recorded for a newly placed order." }, { status: 409 });

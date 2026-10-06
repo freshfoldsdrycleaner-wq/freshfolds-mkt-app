@@ -139,6 +139,9 @@ model DryCleaner {
   operatingHours String?
   status         DryCleanerStatus @default(PENDING)
   createdAt      DateTime         @default(now())
+  termsVersion    String?
+  termsAcceptedAt DateTime?
+  termsAcceptedBy String?
 
   services Service[]
   orders   Order[]
