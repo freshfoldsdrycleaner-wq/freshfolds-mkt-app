@@ -14,6 +14,7 @@ type OrderInfo = {
   estimatedTotal: number;
   balanceDue: number | null;
   customer?: { name: string | null; phone: string };
+  dryCleaner?: { name: string; phone?: string | null };
 };
 
 export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props) {
@@ -27,13 +28,14 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   const [advance, setAdvance] = useState("");
 
   useEffect(() => {
-    if (app !== "dryclean") return;
     let alive = true;
-    apiFetch<{ order: OrderInfo }>("/api/orders/" + orderId, "dryclean")
+    apiFetch<{ order: OrderInfo }>("/api/orders/" + orderId, app)
       .then((d) => {
         if (!alive) return;
         setInfo(d.order);
-        setAdvance(String(Math.round(Number(d.order.estimatedTotal) * 0.2)));
+        if (app === "dryclean") {
+          setAdvance(String(Math.round(Number(d.order.estimatedTotal) * 0.2)));
+        }
       })
       .catch(() => {});
     return () => {
@@ -49,7 +51,9 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
       await apiFetch("/api/orders/" + orderId + "/cancel", app, { method: "POST" });
       onDone();
     } catch (e) {
-      setMsg((e as Error).message || "Could not cancel the order.");
+      const m = (e as Error).message || "Could not cancel the order.";
+      setMsg(m);
+      window.alert("Could not cancel: " + m);
     } finally {
       setBusy(false);
     }
@@ -113,8 +117,51 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   const digits = info?.customer?.phone ? info.customer.phone.replace(/\D/g, "") : "";
   const waNumber = digits.length === 10 ? "91" + digits : digits;
 
+  const dcDigits = info?.dryCleaner?.phone ? info.dryCleaner.phone.replace(/\D/g, "") : "";
+  const dcWa = dcDigits.length === 10 ? "91" + dcDigits : dcDigits;
+
   return (
     <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#f8fafc" }}>
+      {app === "customer" && (
+        <div style={{ marginBottom: 12 }}>
+          <p className="ff-label">Need help?</p>
+          {info?.dryCleaner?.phone && (
+            <>
+              <p style={{ fontSize: 13, marginBottom: 6 }}>
+                {info.dryCleaner.name}: {info.dryCleaner.phone}
+              </p>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <a
+                  className="ff-btn ff-btn-outline"
+                  style={{ flex: 1, textAlign: "center", textDecoration: "none" }}
+                  href={"tel:" + info.dryCleaner.phone}
+                >
+                  Call dry-cleaner
+                </a>
+                <a
+                  className="ff-btn ff-btn-outline"
+                  style={{ flex: 1, textAlign: "center", textDecoration: "none" }}
+                  href={"https://wa.me/" + dcWa}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp
+                </a>
+              </div>
+            </>
+          )}
+          <a
+            className="ff-btn ff-btn-outline"
+            style={{ display: "block", textAlign: "center", textDecoration: "none" }}
+            href="https://wa.me/918847498061?text=Hi%20Fresh%20Folds%2C%20I%20need%20help%20with%20my%20order."
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Contact Fresh Folds on WhatsApp
+          </a>
+        </div>
+      )}
+
       {app === "dryclean" && info?.customer && (
         <div style={{ marginBottom: 12 }}>
           <p className="ff-label">Customer</p>
