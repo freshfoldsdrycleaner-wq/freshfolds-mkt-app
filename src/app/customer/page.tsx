@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
+import { RateOrder, ReviewsList } from "@/components/Reviews";
 import OrderPhotos from "@/components/OrderPhotos";
 import PushSetup from "@/components/PushSetup";
 import ClaimPaid from "@/components/ClaimPaid";
@@ -446,6 +447,7 @@ export default function CustomerApp() {
                 View Cart • {inr(cartSubtotal)}
               </button>
             )}
+            <ReviewsList dryCleanerId={vendor.id} app="customer" />
           </>
         )}
 
@@ -597,6 +599,8 @@ export default function CustomerApp() {
                 Pickup contact: {openOrder.contactName}{openOrder.contactPhone ? " · " + openOrder.contactPhone : ""}
               </p>
             )}
+
+            {(openOrder.status === "DELIVERED" || openOrder.status === "CLOSED") && <RateOrder orderId={openOrder.id} />}
 
             <OrderPhotos orderId={openOrder.id} app="customer" />
 

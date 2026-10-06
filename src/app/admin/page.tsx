@@ -1,5 +1,6 @@
 "use client";
 
+import { ReviewsList } from "@/components/Reviews";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
@@ -83,6 +84,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
+  const [reviewsFor, setReviewsFor] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const [stats, setStats] = useState<Stats | null>(null);
@@ -285,6 +287,7 @@ export default function AdminDashboard() {
                     <td><Badge tone={statusTone(dc.status)}>{dc.status}</Badge></td>
                     <td style={{ color: "#94a3b8" }}>{new Date(dc.createdAt).toLocaleDateString("en-IN")}</td>
                     <td style={{ textAlign: "right" }}>
+                      <button className="ff-btn ff-btn-outline" style={{ marginRight: 6 }} onClick={() => setReviewsFor(reviewsFor === dc.id ? null : dc.id)}>Ratings</button>
                       {dc.status === "PENDING" && (
                         <button className="ff-btn ff-btn-primary" onClick={() => setDryCleanerStatus(dc.id, "ACTIVE")}>Approve</button>
                       )}
@@ -299,6 +302,7 @@ export default function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+            {reviewsFor && <div style={{ padding: 16 }}><ReviewsList dryCleanerId={reviewsFor} app="admin" /></div>}
           )}
         </section>
       )}

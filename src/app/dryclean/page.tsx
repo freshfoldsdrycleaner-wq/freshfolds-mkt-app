@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
 import OrderPhotos from "@/components/OrderPhotos";
+import { ReviewsList } from "@/components/Reviews";
 import DryCleanerTermsForm from "@/components/DryCleanerTermsForm";
 import PushSetup from "@/components/PushSetup";
 import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
@@ -56,7 +57,7 @@ function statusTone(status: string): "green" | "amber" | "red" | "slate" {
   return "slate";
 }
 
-type Tab = "overview" | "services" | "orders";
+type Tab = "overview" | "services" | "orders" | "reviews";
 
 export default function DryCleanDashboard() {
   const router = useRouter();
@@ -387,7 +388,7 @@ export default function DryCleanDashboard() {
 
           {!openOrder && (
             <div className="ff-tabs">
-              {([["overview", "Overview"], ["services", `Services${services ? ` (${services.length})` : ""}`], ["orders", `Orders${orders ? ` (${orders.length})` : ""}`]] as [Tab, string][]).map(([id, label]) => (
+              {([["overview", "Overview"], ["services", `Services${services ? ` (${services.length})` : ""}`], ["orders", `Orders${orders ? ` (${orders.length})` : ""}`], ["reviews", "Ratings"]] as [Tab, string][]).map(([id, label]) => (
                 <button key={id} className={`ff-tab ${tab === id ? "ff-tab-active" : ""}`} onClick={() => setTab(id)}>{label}</button>
               ))}
             </div>
@@ -403,6 +404,8 @@ export default function DryCleanDashboard() {
               </div>
             </div>
           )}
+
+          {!openOrder && tab === "reviews" && <ReviewsList dryCleanerId={dc.id} app="dryclean" />}
 
           {!openOrder && tab === "services" && (
             <div className="ff-card">
