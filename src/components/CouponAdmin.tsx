@@ -106,7 +106,21 @@ export default function CouponAdmin() {
       <div className="ff-card" style={{ padding: 16, marginBottom: 16 }}>
         <p className="ff-label">Create offer code</p>
         <label className="ff-label">Code (letters/numbers, e.g. WELCOME50)</label>
-        <input className="ff-input" style={{ marginBottom: 8 }} value={code} onChange={(e) => setCode(e.target.value)} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <input className="ff-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
+          <button
+            type="button"
+            className="ff-btn ff-btn-outline"
+            onClick={() => {
+              const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+              let r = "FF";
+              for (let i = 0; i < 6; i++) r += chars[Math.floor(Math.random() * chars.length)];
+              setCode(r);
+            }}
+          >
+            Generate
+          </button>
+        </div>
         <label className="ff-label">Discount type</label>
         <select className="ff-input" style={{ marginBottom: 8 }} value={type} onChange={(e) => setType(e.target.value as "PERCENT" | "FLAT")}>
           <option value="PERCENT">Percent off</option>

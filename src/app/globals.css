@@ -62,8 +62,8 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 .ff-table th { text-align: left; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
 .ff-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
 
-.ff-tabs { display: flex; gap: 4px; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; }
-.ff-tab { padding: 10px 16px; font-size: 14px; font-weight: 600; color: #64748b; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.ff-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; }
+.ff-tab { padding: 10px 12px; font-size: 14px; font-weight: 600; color: #64748b; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .ff-tab-active { color: #2563eb; border-bottom-color: #2563eb; }
 
 .ff-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
