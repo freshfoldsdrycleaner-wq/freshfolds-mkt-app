@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
+import OrderPhotos from "@/components/OrderPhotos";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -466,6 +467,8 @@ export default function CustomerApp() {
             {openOrder.status === "ORDER_PLACED" && (
               <OrderEditCard orderId={openOrder.id} app="customer" allowEdit onDone={refreshOpenOrder} />
             )}
+
+            <OrderPhotos orderId={openOrder.id} app="customer" />
 
             {openOrder.defects.length > 0 && !openOrder.pickupConditionConfirmedAt && (
               <div className="ff-card" style={{ padding: 14, marginBottom: 16, background: "#fffbeb" }}>

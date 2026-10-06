@@ -27,6 +27,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<OrderInfo | null>(null);
   const [advance, setAdvance] = useState("");
+  const [shots, setShots] = useState<string[]>([]);
   const [locStatus, setLocStatus] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
 
@@ -118,6 +119,46 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
     }
   }
 
+  function compress(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const max = 1000;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        const ctx = c.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          reject(new Error("no canvas"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL("image/jpeg", 0.6));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("bad image"));
+      };
+      img.src = url;
+    });
+  }
+
+  async function addShots(files: FileList | null) {
+    if (!files) return;
+    setMsg("");
+    try {
+      const out: string[] = [];
+      for (const f of Array.from(files)) out.push(await compress(f));
+      setShots((prev) => [...prev, ...out].slice(0, 10));
+    } catch {
+      setMsg("Could not read that photo. Try again.");
+    }
+  }
+
   async function selfPickup() {
     const amount = Number(advance);
     if (!Number.isFinite(amount) || amount < 0) {
@@ -133,6 +174,12 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
     setBusy(true);
     setMsg("");
     try {
+      for (let i = 0; i < shots.length; i++) {
+        await apiFetch("/api/orders/" + orderId + "/photos", "dryclean", {
+          method: "POST",
+          body: JSON.stringify({ photoUrl: shots[i], itemRef: "pickup-" + (i + 1) }),
+        });
+      }
       await apiFetch("/api/orders/" + orderId + "/self-pickup", "dryclean", {
         method: "POST",
         body: JSON.stringify({ advanceAmount: amount }),
@@ -240,6 +287,54 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
       {app === "dryclean" && (
         <div style={{ marginBottom: 12 }}>
           <p className="ff-label">I will pick up myself</p>
+          <label className="ff-label">Inspection photos of the clothes</label>
+          <label
+            className="ff-btn ff-btn-outline"
+            style={{ display: "block", textAlign: "center", cursor: "pointer", marginBottom: 6 }}
+          >
+            📷 Take / add photos
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => {
+                addShots(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {shots.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+              {shots.map((src, i) => (
+                <div key={i} style={{ position: "relative" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8 }} />
+                  <button
+                    type="button"
+                    onClick={() => setShots(shots.filter((_, j) => j !== i))}
+                    style={{
+                      position: "absolute",
+                      top: -6,
+                      right: -6,
+                      width: 20,
+                      height: 20,
+                      borderRadius: 10,
+                      border: "none",
+                      background: "#dc2626",
+                      color: "#fff",
+                      fontSize: 12,
+                      lineHeight: "20px",
+                      padding: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <label className="ff-label">Advance collected from customer (Rs)</label>
           <input
             className="ff-input"

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import OrderEditCard from "@/components/OrderEditCard";
+import OrderPhotos from "@/components/OrderPhotos";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -505,6 +506,8 @@ export default function DryCleanDashboard() {
               {openOrder.status === "ORDER_PLACED" && (
                 <OrderEditCard orderId={openOrder.id} app="dryclean" onDone={refreshOpenOrder} />
               )}
+
+              <OrderPhotos orderId={openOrder.id} app="dryclean" />
 
               {openOrder.status === "PICKUP_IN_PROGRESS" && (
                 <p style={{ fontSize: 13, color: "#92400e", background: "#fffbeb", padding: 10, borderRadius: 8, marginBottom: 16 }}>

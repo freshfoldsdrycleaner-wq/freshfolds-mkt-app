@@ -4,8 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, UnauthorizedError } from "@/lib/auth";
 
 const bodySchema = z.object({
-  photoUrl: z.string().url(), // secure object-storage URL — never raw image bytes (section 41)
-  itemRef: z.string().optional(),
+  // Object-storage URL, or (soft launch) a small compressed JPEG data URL taken in the app.
+  photoUrl: z
+    .string()
+    .refine(
+      (v) =>
+        (v.startsWith("data:image/jpeg;base64,") && v.length <= 700_000) ||
+        (/^https:\/\//.test(v) && v.length <= 2000),
+      "Photo is invalid or too large"
+    ),
+  itemRef: z.string().max(100).optional(),
 });
 
 async function assertAssignedDeliveryPerson(orderId: string, userId: string) {
@@ -29,11 +37,30 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: (e as Error).message }, { status: 401 });
   }
 
-  if (session.role !== "DELIVERY_PERSON" || !(await assertAssignedDeliveryPerson(params.id, session.userId))) {
-    return NextResponse.json({ error: "Not assigned to this order's pickup" }, { status: 403 });
+  let allowed = false;
+  if (session.role === "DELIVERY_PERSON") {
+    allowed = await assertAssignedDeliveryPerson(params.id, session.userId);
+  } else if (session.role === "DRYCLEANER_ADMIN" || session.role === "FRESHFOLD_ADMIN") {
+    // Soft launch: the dry-cleaner picks up personally and photographs the clothes.
+    const o = await prisma.order.findUnique({
+      where: { id: params.id },
+      include: { dryCleaner: { select: { ownerId: true } } },
+    });
+    allowed =
+      !!o &&
+      (session.role === "FRESHFOLD_ADMIN" || o.dryCleaner.ownerId === session.userId) &&
+      ["ORDER_PLACED", "PICKUP_ASSIGNED", "PICKUP_IN_PROGRESS", "PICKED_UP", "RECEIVED_BY_DRY_CLEANER", "INSPECTION"].includes(o.status);
+  }
+  if (!allowed) {
+    return NextResponse.json({ error: "Not allowed to add photos to this order" }, { status: 403 });
   }
 
-  const parsed = bodySchema.safeParse(await req.json());
+  const existing = await prisma.pickupPhoto.count({ where: { orderId: params.id } });
+  if (existing >= 12) {
+    return NextResponse.json({ error: "Maximum 12 photos per order" }, { status: 400 });
+  }
+
+  const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
