@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
-const APPS: Record<string, { name: string; start: string }> = {
-  customer: { name: "Fresh Fold", start: "/customer/login" },
-  dryclean: { name: "Fresh Fold Partner", start: "/dryclean/login" },
-  admin: { name: "Fresh Fold Admin", start: "/admin/login" },
+// Each app gets its own scope so the three installed apps never capture
+// each other's links (a shared "/" scope made the wrong app open).
+const APPS: Record<string, { name: string; start: string; scope: string }> = {
+  customer: { name: "Fresh Fold", start: "/customer/login", scope: "/customer/" },
+  dryclean: { name: "Fresh Fold Partner", start: "/dryclean/login", scope: "/dryclean/" },
+  admin: { name: "Fresh Fold Admin", start: "/admin/login", scope: "/admin/" },
 };
 
 export async function GET(
@@ -17,7 +19,7 @@ export async function GET(
     short_name: app.name,
     description: "Your local dry-cleaning service, simplified.",
     start_url: app.start,
-    scope: "/",
+    scope: app.scope,
     display: "standalone",
     background_color: "#f8fafc",
     theme_color: "#2563eb",
