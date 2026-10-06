@@ -3,10 +3,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { assertTransition, IllegalOrderTransitionError } from "@/lib/orderStateMachine";
+import { FF_ADVANCE_PREFIX } from "@/lib/upi";
 import { getNotificationProvider } from "@/lib/providers/notification";
 
 const bodySchema = z.object({
   advanceAmount: z.number().min(0),
+  advanceTo: z.enum(["FRESHFOLD", "VENDOR"]).default("VENDOR"),
 });
 
 /**
@@ -61,7 +63,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             orderId: order.id,
             amount: advance,
             paymentType: "BOOKING",
-            transactionId: `CASH-${order.orderNumber}-${Date.now()}`,
+            transactionId: `${parsed.data.advanceTo === "FRESHFOLD" ? FF_ADVANCE_PREFIX : "CASH-"}${order.orderNumber}-${Date.now()}`,
             status: "SUCCESS",
           },
         });

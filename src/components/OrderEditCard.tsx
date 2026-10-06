@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
+import { FF_UPI_ID, upiLink } from "@/lib/upi";
 
 type Props = {
   orderId: string;
@@ -30,6 +31,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   const [info, setInfo] = useState<OrderInfo | null>(null);
   const [advance, setAdvance] = useState("");
   const [shots, setShots] = useState<string[]>([]);
+  const [advanceTo, setAdvanceTo] = useState<"FRESHFOLD" | "VENDOR">("FRESHFOLD");
   const [locStatus, setLocStatus] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
 
@@ -184,7 +186,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
       }
       await apiFetch("/api/orders/" + orderId + "/self-pickup", "dryclean", {
         method: "POST",
-        body: JSON.stringify({ advanceAmount: amount }),
+        body: JSON.stringify({ advanceAmount: amount, advanceTo }),
       });
       onDone();
     } catch (e) {
@@ -205,6 +207,24 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
 
   return (
     <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#f8fafc" }}>
+      {app === "customer" && info && (
+        <div style={{ marginBottom: 12, padding: 10, background: "#eff6ff", borderRadius: 8 }}>
+          <p className="ff-label">Pay your 20% advance</p>
+          <p style={{ fontSize: 13, marginBottom: 6 }}>
+            Pay <b>Rs {Math.round(Number(info.estimatedTotal) * 0.2)}</b> to Fresh Folds before pickup, or at pickup.
+            Show the success screen to the dry-cleaner.
+          </p>
+          <a
+            className="ff-btn ff-btn-primary"
+            style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 6 }}
+            href={upiLink(Math.round(Number(info.estimatedTotal) * 0.2), "Fresh Folds advance")}
+          >
+            Pay with UPI app
+          </a>
+          <p style={{ fontSize: 11, color: "#64748b" }}>UPI ID: {FF_UPI_ID}</p>
+        </div>
+      )}
+
       {app === "customer" && (
         <div style={{ marginBottom: 12 }}>
           <p className="ff-label">Need help?</p>
@@ -357,6 +377,34 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+          <label className="ff-label">Advance was paid to</label>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <button
+              type="button"
+              className={"ff-btn " + (advanceTo === "FRESHFOLD" ? "ff-btn-primary" : "ff-btn-outline")}
+              style={{ flex: 1, fontSize: 12 }}
+              onClick={() => setAdvanceTo("FRESHFOLD")}
+            >
+              Fresh Folds UPI
+            </button>
+            <button
+              type="button"
+              className={"ff-btn " + (advanceTo === "VENDOR" ? "ff-btn-primary" : "ff-btn-outline")}
+              style={{ flex: 1, fontSize: 12 }}
+              onClick={() => setAdvanceTo("VENDOR")}
+            >
+              Cash / my UPI
+            </button>
+          </div>
+          {advanceTo === "FRESHFOLD" && (
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <p style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>
+                Ask the customer to scan and pay, and check their payment-success screen. UPI ID: {FF_UPI_ID}
+              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/freshfolds-upi-qr.png" alt="Fresh Folds UPI QR" style={{ width: 160, height: 160 }} />
             </div>
           )}
           <label className="ff-label">Advance collected from customer (Rs)</label>

@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import CouponAdmin from "@/components/CouponAdmin";
+import PayoutAdmin from "@/components/PayoutAdmin";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
-type Tab = "overview" | "drycleaners" | "services" | "ledger" | "offers";
+type Tab = "overview" | "drycleaners" | "services" | "ledger" | "offers" | "payouts";
 
 interface Stats {
   totalCustomers: number;
@@ -211,6 +212,7 @@ export default function AdminDashboard() {
           ["services", "Service Changes" + (stats ? ` (${stats.pendingServiceChanges})` : "")],
           ["ledger", "Ledger"],
           ["offers", "Offers"],
+          ["payouts", "Payouts"],
         ] as [Tab, string][]).map(([id, label]) => (
           <button key={id} className={`ff-tab ${tab === id ? "ff-tab-active" : ""}`} onClick={() => setTab(id)}>
             {label}
@@ -330,6 +332,8 @@ export default function AdminDashboard() {
       )}
 
       {tab === "offers" && <CouponAdmin />}
+
+      {tab === "payouts" && <PayoutAdmin />}
 
       {tab === "ledger" && (
         <section className="ff-card">

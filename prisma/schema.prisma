@@ -368,3 +368,15 @@ model Coupon {
   active           Boolean   @default(true)
   createdAt        DateTime  @default(now())
 }
+
+// Money Fresh Folds has paid out to a dry-cleaner (advances collected by
+// Fresh Folds' UPI, minus commission). Soft-launch manual settlement log.
+model VendorPayout {
+  id           String   @id @default(cuid())
+  dryCleanerId String
+  amount       Decimal  @db.Decimal(10, 2)
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([dryCleanerId])
+}
