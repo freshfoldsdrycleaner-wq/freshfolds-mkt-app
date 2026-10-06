@@ -275,6 +275,7 @@ export default function AdminDashboard() {
           ) : dryCleaners.length === 0 ? (
             <p style={{ padding: 16, color: "#94a3b8" }}>No dry-cleaners registered yet.</p>
           ) : (
+            <>
             <table className="ff-table">
               <thead>
                 <tr><th>Business</th><th>Owner</th><th>Status</th><th>Registered</th><th></th></tr>
@@ -303,6 +304,7 @@ export default function AdminDashboard() {
               </tbody>
             </table>
             {reviewsFor && <div style={{ padding: 16 }}><ReviewsList dryCleanerId={reviewsFor} app="admin" /></div>}
+            </>
           )}
         </section>
       )}
