@@ -15,7 +15,6 @@ interface Coupon {
   usageLimit: number | null;
   perCustomerLimit: number;
   active: boolean;
-  isPublic: boolean;
   used: number;
 }
 
@@ -33,7 +32,6 @@ export default function CouponAdmin() {
   const [usageLimit, setUsageLimit] = useState("");
   const [perCustomer, setPerCustomer] = useState("1");
   const [description, setDescription] = useState("");
-  const [isPublic, setIsPublic] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -61,7 +59,6 @@ export default function CouponAdmin() {
       discountValue: v,
       minOrderValue: minOrder ? Number(minOrder) : 0,
       perCustomerLimit: perCustomer ? Number(perCustomer) : 1,
-      isPublic,
     };
     if (description.trim()) body.description = description.trim();
     if (type === "PERCENT" && maxDiscount) body.maxDiscount = Number(maxDiscount);
@@ -92,18 +89,6 @@ export default function CouponAdmin() {
       await apiFetch("/api/admin/coupons", "admin", {
         method: "PATCH",
         body: JSON.stringify({ id: c.id, active: !c.active }),
-      });
-      load();
-    } catch (e) {
-      setMsg(e instanceof ApiError ? e.message : "Could not update the offer code.");
-    }
-  }
-
-  async function togglePublic(c: Coupon) {
-    try {
-      await apiFetch("/api/admin/coupons", "admin", {
-        method: "PATCH",
-        body: JSON.stringify({ id: c.id, isPublic: !c.isPublic }),
       });
       load();
     } catch (e) {
@@ -159,10 +144,6 @@ export default function CouponAdmin() {
         <input className="ff-input" style={{ marginBottom: 8 }} type="number" inputMode="numeric" value={perCustomer} onChange={(e) => setPerCustomer(e.target.value)} />
         <label className="ff-label">Note for yourself (optional)</label>
         <input className="ff-input" style={{ marginBottom: 12 }} value={description} onChange={(e) => setDescription(e.target.value)} />
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 12 }}>
-          <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
-          Show this offer to all customers in the app
-        </label>
         <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} disabled={busy} onClick={create}>
           Create offer code
         </button>
@@ -178,21 +159,16 @@ export default function CouponAdmin() {
             <div key={c.id} style={{ padding: "10px 0", borderTop: "1px solid #f1f5f9" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <strong>{c.code}</strong>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button className="ff-btn ff-btn-outline" onClick={() => togglePublic(c)}>
-                    {c.isPublic ? "Hide from customers" : "Show to customers"}
-                  </button>
-                  <button className="ff-btn ff-btn-outline" onClick={() => toggle(c)}>
-                    {c.active ? "Turn off" : "Turn on"}
-                  </button>
-                </div>
+                <button className="ff-btn ff-btn-outline" onClick={() => toggle(c)}>
+                  {c.active ? "Turn off" : "Turn on"}
+                </button>
               </div>
               <p style={{ fontSize: 12, margin: "4px 0 0" }}>{describe(c)}</p>
               <p style={{ fontSize: 11, color: "#94a3b8", margin: "2px 0 0" }}>
                 Used {c.used}
                 {c.usageLimit ? " of " + c.usageLimit : ""} · {c.perCustomerLimit} per customer ·{" "}
                 {c.expiresAt ? "valid till " + new Date(c.expiresAt).toLocaleDateString("en-IN") : "no expiry"} ·{" "}
-                {c.active ? "ON" : "OFF"} · {c.isPublic ? "visible to customers" : "private code"}
+                {c.active ? "ON" : "OFF"}
               </p>
               {c.description && <p style={{ fontSize: 11, color: "#94a3b8", margin: "2px 0 0" }}>{c.description}</p>}
             </div>

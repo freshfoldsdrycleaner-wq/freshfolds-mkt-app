@@ -84,7 +84,6 @@ export default function CustomerApp() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [preferredPickupAt, setPreferredPickupAt] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [offers, setOffers] = useState<{ code: string; title: string; detail: string }[]>([]);
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discountAmount: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState("");
@@ -143,17 +142,6 @@ export default function CustomerApp() {
       if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "Failed to load nearby dry-cleaners.");
     }
   }, [location, maxKm, handleAuthError]);
-
-  useEffect(() => {
-    apiFetch<{ offers: { code: string; title: string; detail: string }[] }>("/api/coupons/available", "customer")
-      .then((d) => setOffers(d.offers || []))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (screen === "checkout" && couponInput.trim() && !coupon) applyCoupon();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen]);
 
   async function searchArea() {
     const q = areaQuery.trim();
@@ -246,16 +234,14 @@ export default function CustomerApp() {
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const cartSubtotal = cartItems.reduce((s, i) => s + i.effectivePrice * i.qty, 0);
 
-  async function applyCoupon(codeOverride?: string) {
-    const codeToUse = (codeOverride ?? couponInput).trim();
-    if (!codeToUse) return;
-    if (codeOverride) setCouponInput(codeOverride);
+  async function applyCoupon() {
+    if (!couponInput.trim()) return;
     setCouponMsg("");
     try {
       const data = await apiFetch<{ code: string; discountAmount: number; label: string }>(
         "/api/coupons/validate",
         "customer",
-        { method: "POST", body: JSON.stringify({ code: codeToUse, subtotal: cartSubtotal }) }
+        { method: "POST", body: JSON.stringify({ code: couponInput.trim(), subtotal: cartSubtotal }) }
       );
       setCoupon(data);
     } catch (e) {
@@ -395,20 +381,6 @@ export default function CustomerApp() {
       <div style={{ flex: 1, padding: "0 16px 90px" }}>
         {tab === "home" && screen === "list" && (
           <>
-            {offers.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <p style={{ fontWeight: 700, fontSize: 14, margin: "0 0 8px" }}>Offers for you</p>
-                <div className="cx-perks" style={{ marginTop: 0 }}>
-                  {offers.map((o) => (
-                    <button key={o.code} className="cx-offer" onClick={() => setCouponInput(o.code)}>
-                      <strong>{o.title}</strong>
-                      <span>{o.detail || "No minimum order"}</span>
-                      <em>{couponInput === o.code ? "Saved. Applies at checkout" : "Code " + o.code + " · tap to use"}</em>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 8px" }}>
               {areaLabel === "all areas" ? "Dry-cleaners in all areas" : areaLabel ? "Dry-cleaners near " + areaLabel : "Dry-cleaners near you"}
             </p>
@@ -511,24 +483,10 @@ export default function CustomerApp() {
                 <span>Estimated total</span><span>{inr(coupon ? cartSubtotal - coupon.discountAmount : cartSubtotal)}</span>
               </div>
             </div>
-            {offers.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <label className="ff-label">Available offers</label>
-                {offers.map((o) => (
-                  <button key={o.code} onClick={() => applyCoupon(o.code)} className="ff-card" style={{ width: "100%", textAlign: "left", padding: 10, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderStyle: "dashed", borderColor: coupon?.code === o.code ? "#0e8f9c" : undefined }}>
-                    <span>
-                      <strong style={{ fontSize: 13 }}>{o.title}</strong>
-                      <span style={{ display: "block", fontSize: 11, color: "#4b6b7a" }}>{o.detail || "No minimum order"} · {o.code}</span>
-                    </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#0a6f7a" }}>{coupon?.code === o.code ? "Applied" : "Apply"}</span>
-                  </button>
-                ))}
-              </div>
-            )}
             <label className="ff-label">Offer code (optional)</label>
             <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
               <input className="ff-input" value={couponInput} onChange={(e) => { setCouponInput(e.target.value); setCoupon(null); }} placeholder="Enter code" />
-              <button className="ff-btn ff-btn-outline" onClick={() => applyCoupon()}>Apply</button>
+              <button className="ff-btn ff-btn-outline" onClick={applyCoupon}>Apply</button>
             </div>
             {couponMsg && <p style={{ fontSize: 12, color: "#dc2626", marginBottom: 8 }}>{couponMsg}</p>}
             {coupon && <p style={{ fontSize: 12, color: "#059669", marginBottom: 8 }}>Offer applied. You save {inr(coupon.discountAmount)}.</p>}

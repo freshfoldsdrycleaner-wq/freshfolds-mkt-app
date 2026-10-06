@@ -371,7 +371,6 @@ model Coupon {
   usageLimit       Int?
   perCustomerLimit Int       @default(1)
   active           Boolean   @default(true)
-  isPublic         Boolean   @default(false)
   createdAt        DateTime  @default(now())
 }
 
