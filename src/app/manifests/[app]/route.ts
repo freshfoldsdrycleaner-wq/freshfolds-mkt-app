@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 // Each app gets its own scope so the three installed apps never capture
 // each other's links (a shared "/" scope made the wrong app open).
 const APPS: Record<string, { name: string; start: string; scope: string }> = {
-  customer: { name: "Fresh Fold", start: "/customer/login", scope: "/customer/" },
-  dryclean: { name: "Fresh Fold Partner", start: "/dryclean/login", scope: "/dryclean/" },
-  admin: { name: "Fresh Fold Admin", start: "/admin/login", scope: "/admin/" },
+  customer: { name: "Fresh Fold", start: "/customer/login", scope: "/customer" },
+  dryclean: { name: "Fresh Fold Partner", start: "/dryclean/login", scope: "/dryclean" },
+  admin: { name: "Fresh Fold Admin", start: "/admin/login", scope: "/admin" },
 };
 
 export async function GET(
