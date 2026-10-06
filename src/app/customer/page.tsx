@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
+import OrderEditCard from "@/components/OrderEditCard";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -217,15 +218,6 @@ export default function CustomerApp() {
       if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "Failed to confirm.");
     }
   }
-  async function payRemaining() {
-    if (!openOrder) return;
-    try {
-      await apiFetch(`/api/orders/${openOrder.id}/payment/final`, "customer", { method: "POST" });
-      refreshOpenOrder();
-    } catch (e) {
-      if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "Payment failed.");
-    }
-  }
 
   function logout() {
     clearToken("customer");
@@ -284,7 +276,7 @@ export default function CustomerApp() {
               return (
                 <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
                   <div>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{s.itemName}</p>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{s.itemName} <span style={{ fontWeight: 400, color: "#64748b" }}>({s.serviceName})</span></p>
                     <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>
                       {s.discountPercent > 0 ? (
                         <>
@@ -321,7 +313,7 @@ export default function CustomerApp() {
             <div className="ff-card" style={{ padding: 14, marginBottom: 12 }}>
               {cartItems.map((i) => (
                 <div key={i.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                  <span>{i.itemName} × {i.qty}</span><span>{inr(i.effectivePrice * i.qty)}</span>
+                  <span>{i.itemName} ({i.serviceName}) × {i.qty}</span><span>{inr(i.effectivePrice * i.qty)}</span>
                 </div>
               ))}
               <div style={{ height: 1, background: "#f1f5f9", margin: "8px 0" }} />
@@ -330,7 +322,7 @@ export default function CustomerApp() {
               </div>
             </div>
             <p style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", padding: 8, borderRadius: 8, marginBottom: 12 }}>
-              20% is due now as a booking deposit; the rest is charged after pickup inspection confirms the final total.
+              Nothing is charged now. You pay the dry-cleaner directly (cash or UPI) once your clothes are ready.
             </p>
             <label className="ff-label">Pickup address</label>
             <input className="ff-input" style={{ marginBottom: 10 }} value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Flat, street, area" />
@@ -346,7 +338,7 @@ export default function CustomerApp() {
               onChange={(e) => setPreferredPickupAt(e.target.value)}
             />
             <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} disabled={placingOrder || !pickupAddress.trim() || !deliveryAddress.trim()} onClick={placeOrder}>
-              {placingOrder ? "Placing order…" : "Confirm & Pay 20%"}
+              {placingOrder ? "Placing order…" : "Confirm order"}
             </button>
           </>
         )}
@@ -357,7 +349,7 @@ export default function CustomerApp() {
             <h2 style={{ margin: "0 0 4px" }}>Order confirmed</h2>
             <p style={{ color: "#94a3b8", marginBottom: 20 }}>{lastOrder.orderNumber}</p>
             <div className="ff-card" style={{ padding: 14, textAlign: "left", marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}><span>Paid now (20%)</span><span>{inr(lastOrder.amountPaid)}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}><span>Paid so far</span><span>{inr(lastOrder.amountPaid)}</span></div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>Balance due</span><span>{inr(lastOrder.balanceDue)}</span></div>
             </div>
             <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} onClick={() => { setTab("orders"); setScreen("list"); setVendor(null); }}>
@@ -398,6 +390,10 @@ export default function CustomerApp() {
               </p>
             )}
 
+            {openOrder.status === "ORDER_PLACED" && (
+              <OrderEditCard orderId={openOrder.id} app="customer" allowEdit onDone={refreshOpenOrder} />
+            )}
+
             {openOrder.defects.length > 0 && !openOrder.pickupConditionConfirmedAt && (
               <div className="ff-card" style={{ padding: 14, marginBottom: 16, background: "#fffbeb" }}>
                 <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Please review the condition of your clothes</p>
@@ -415,7 +411,7 @@ export default function CustomerApp() {
             {openOrder.status === "PAYMENT_PENDING" && (
               <div className="ff-card" style={{ padding: 14, marginBottom: 16, background: "#fffbeb" }}>
                 <p style={{ fontSize: 13, marginBottom: 8 }}>Your order is ready! Balance due: <strong>{inr(openOrder.balanceDue)}</strong></p>
-                <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} onClick={payRemaining}>Pay Remaining {inr(openOrder.balanceDue)}</button>
+                <p style={{ fontSize: 12, color: "#92400e" }}>Please pay the dry-cleaner directly (cash or UPI). They will confirm your payment in the app.</p>
               </div>
             )}
 
