@@ -69,6 +69,10 @@ export default function CustomerApp() {
   const [profile, setProfile] = useState<{ name: string | null; phone: string; email: string | null } | null>(null);
 
   const [location, setLocation] = useState(DEFAULT_LOCATION);
+  const [maxKm, setMaxKm] = useState(15);
+  const [areaLabel, setAreaLabel] = useState("");
+  const [areaQuery, setAreaQuery] = useState("");
+  const [areaMsg, setAreaMsg] = useState("");
   const [vendors, setVendors] = useState<DryCleanerSummary[] | null>(null);
   const [vendor, setVendor] = useState<DryCleanerDetail | null>(null);
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -126,14 +130,64 @@ export default function CustomerApp() {
   const loadVendors = useCallback(async () => {
     try {
       const data = await apiFetch<{ dryCleaners: DryCleanerSummary[] }>(
-        `/api/drycleaners?lat=${location.lat}&lng=${location.lng}`,
+        `/api/drycleaners?lat=${location.lat}&lng=${location.lng}&maxKm=${maxKm}`,
         "customer"
       );
       setVendors(data.dryCleaners);
     } catch (e) {
       if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "Failed to load nearby dry-cleaners.");
     }
-  }, [location, handleAuthError]);
+  }, [location, maxKm, handleAuthError]);
+
+  async function searchArea() {
+    const q = areaQuery.trim();
+    if (q.length < 3) {
+      setAreaMsg("Type an area and city, e.g. Saket, Delhi");
+      return;
+    }
+    setAreaMsg("Searching…");
+    try {
+      const res = await fetch(
+        "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=" + encodeURIComponent(q)
+      );
+      const arr = await res.json();
+      if (!Array.isArray(arr) || arr.length === 0) {
+        setAreaMsg("Could not find that place. Try adding the city name, or use Show all.");
+        return;
+      }
+      setLocation({ lat: Number(arr[0].lat), lng: Number(arr[0].lon) });
+      setMaxKm(15);
+      setAreaLabel(q);
+      setVendors(null);
+      setAreaMsg("");
+    } catch {
+      setAreaMsg("Search failed. Check your internet or use Show all.");
+    }
+  }
+
+  function showAllAreas() {
+    setMaxKm(5000);
+    setAreaLabel("all areas");
+    setAreaMsg("");
+    setVendors(null);
+  }
+
+  function useMyLocationForList() {
+    if (!navigator.geolocation) {
+      setAreaMsg("Location is not available on this device.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setMaxKm(15);
+        setAreaLabel("");
+        setAreaMsg("");
+        setVendors(null);
+      },
+      () => setAreaMsg("Could not get your location. Allow location in Chrome settings.")
+    );
+  }
 
   const loadOrders = useCallback(async () => {
     try {
@@ -313,7 +367,25 @@ export default function CustomerApp() {
       <div style={{ flex: 1, padding: "0 16px 90px" }}>
         {tab === "home" && screen === "list" && (
           <>
-            <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>Dry-cleaners near you</p>
+            <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 8px" }}>
+              {areaLabel === "all areas" ? "Dry-cleaners in all areas" : areaLabel ? "Dry-cleaners near " + areaLabel : "Dry-cleaners near you"}
+            </p>
+            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+              <input
+                className="ff-input"
+                style={{ flex: 1 }}
+                value={areaQuery}
+                onChange={(e) => setAreaQuery(e.target.value)}
+                placeholder="Another area, e.g. Saket, Delhi"
+              />
+              <button className="ff-btn ff-btn-primary" onClick={searchArea}>Search</button>
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <button className="ff-btn ff-btn-outline" style={{ flex: 1, fontSize: 12 }} onClick={useMyLocationForList}>📍 My location</button>
+              <button className="ff-btn ff-btn-outline" style={{ flex: 1, fontSize: 12 }} onClick={showAllAreas}>Show all</button>
+            </div>
+            {areaMsg && <p style={{ fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>{areaMsg}</p>}
+            <div style={{ height: 4 }} />
             {!vendors ? (
               <p style={{ color: "#94a3b8" }}>Loading…</p>
             ) : vendors.length === 0 ? (
