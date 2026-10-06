@@ -27,6 +27,7 @@ const createSchema = z
     expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // last valid day (IST)
     usageLimit: z.number().int().positive().optional(),
     perCustomerLimit: z.number().int().positive().default(1),
+    isPublic: z.boolean().default(false),
   })
   .refine((v) => v.discountType !== "PERCENT" || v.discountValue <= 100, {
     message: "Percent cannot be more than 100",
@@ -59,6 +60,7 @@ export async function GET(req: Request) {
       usageLimit: c.usageLimit,
       perCustomerLimit: c.perCustomerLimit,
       active: c.active,
+      isPublic: c.isPublic,
       used: usedBy.get(c.code) ?? 0,
     })),
   });
@@ -92,12 +94,13 @@ export async function POST(req: Request) {
       expiresAt: v.expiresOn ? new Date(`${v.expiresOn}T23:59:59+05:30`) : undefined,
       usageLimit: v.usageLimit,
       perCustomerLimit: v.perCustomerLimit,
+      isPublic: v.isPublic,
     },
   });
   return NextResponse.json({ coupon: { id: created.id, code: created.code } }, { status: 201 });
 }
 
-const patchSchema = z.object({ id: z.string(), active: z.boolean() });
+const patchSchema = z.object({ id: z.string(), active: z.boolean().optional(), isPublic: z.boolean().optional() });
 
 /** PATCH /api/admin/coupons: switch an offer code on or off. */
 export async function PATCH(req: Request) {
@@ -108,6 +111,6 @@ export async function PATCH(req: Request) {
   }
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  await prisma.coupon.update({ where: { id: parsed.data.id }, data: { active: parsed.data.active } });
+  await prisma.coupon.update({ where: { id: parsed.data.id }, data: { active: parsed.data.active, isPublic: parsed.data.isPublic } });
   return NextResponse.json({ ok: true });
 }
