@@ -47,6 +47,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       customer: isOwnerCustomer ? undefined : { name: order.customer.name, phone: order.customer.phone },
       pickupAddress: order.pickupAddress,
       deliveryAddress: order.deliveryAddress,
+      contactName: order.contactName,
+      contactPhone: order.contactPhone,
       preferredPickupAt: order.preferredPickupAt,
       estimatedTotal: Number(order.estimatedTotal),
       couponCode: order.couponCode,

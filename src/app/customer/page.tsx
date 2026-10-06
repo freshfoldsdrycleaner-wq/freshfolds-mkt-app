@@ -40,7 +40,7 @@ interface OrderRow {
 }
 interface Defect { defectType: string; description: string | null; photoUrl: string | null; }
 interface OrderDetail extends OrderRow {
-  pickupAddress: string; deliveryAddress: string; preferredPickupAt: string | null;
+  pickupAddress: string; deliveryAddress: string; contactName?: string | null; contactPhone?: string | null; preferredPickupAt: string | null;
   couponCode?: string | null; discountAmount?: number;
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
   defects: Defect[];
@@ -80,6 +80,9 @@ export default function CustomerApp() {
   const [coupon, setCoupon] = useState<{ code: string; discountAmount: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState("");
   const [locMsg, setLocMsg] = useState("");
+  const [forOther, setForOther] = useState(false);
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [lastOrder, setLastOrder] = useState<{ orderNumber: string; amountPaid: number; balanceDue: number } | null>(null);
 
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
@@ -226,6 +229,10 @@ export default function CustomerApp() {
 
   async function placeOrder() {
     if (!vendor || !pickupAddress.trim() || !deliveryAddress.trim()) return;
+    if (forOther && (!contactName.trim() || contactPhone.replace(/\D/g, "").length < 10)) {
+      setError("Enter the name and a 10-digit phone number of the person at the pickup address.");
+      return;
+    }
     setError("");
     setPlacingOrder(true);
     try {
@@ -238,6 +245,8 @@ export default function CustomerApp() {
             dryCleanerId: vendor.id,
             pickupAddress: pickupAddress.trim(),
             deliveryAddress: deliveryAddress.trim(),
+            contactName: forOther ? contactName.trim() : undefined,
+            contactPhone: forOther ? contactPhone.trim() : undefined,
             couponCode: coupon ? coupon.code : undefined,
             preferredPickupAt: preferredPickupAt ? new Date(preferredPickupAt).toISOString() : undefined,
             items: cartItems.map((i) => ({ serviceId: i.id, quantity: i.qty })),
@@ -402,6 +411,19 @@ export default function CustomerApp() {
             {!locMsg && <div style={{ height: 4 }} />}
             <label className="ff-label">Delivery address</label>
             <input className="ff-input" style={{ marginBottom: 10 }} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Same or different address" />
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 8 }}>
+              <input type="checkbox" checked={forOther} onChange={(e) => setForOther(e.target.checked)} />
+              This order is for someone else (e.g. a relative in another city)
+            </label>
+            {forOther && (
+              <div style={{ marginBottom: 10 }}>
+                <p style={{ fontSize: 11, color: "#64748b", marginBottom: 6 }}>
+                  Type their pickup and delivery address above. The dry-cleaner will call this person for pickup and delivery.
+                </p>
+                <input className="ff-input" style={{ marginBottom: 6 }} value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact person's name" />
+                <input className="ff-input" type="tel" inputMode="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="Contact person's phone" />
+              </div>
+            )}
             <label className="ff-label">Preferred pickup time (optional)</label>
             <input
               className="ff-input"
@@ -466,6 +488,12 @@ export default function CustomerApp() {
 
             {openOrder.status === "ORDER_PLACED" && (
               <OrderEditCard orderId={openOrder.id} app="customer" allowEdit onDone={refreshOpenOrder} />
+            )}
+
+            {openOrder.contactName && (
+              <p style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
+                Pickup contact: {openOrder.contactName}{openOrder.contactPhone ? " · " + openOrder.contactPhone : ""}
+              </p>
             )}
 
             <OrderPhotos orderId={openOrder.id} app="customer" />

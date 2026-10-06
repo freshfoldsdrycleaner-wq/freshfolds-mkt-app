@@ -7,6 +7,8 @@ import { getNotificationProvider } from "@/lib/providers/notification";
 const bodySchema = z.object({
   pickupAddress: z.string().min(3).optional(),
   deliveryAddress: z.string().min(3).optional(),
+  contactName: z.string().trim().min(1).max(80).optional(),
+  contactPhone: z.string().trim().regex(/^[0-9+\s-]{10,15}$/, "Enter a valid contact phone number").optional(),
   preferredPickupAt: z.string().datetime().optional(),
 });
 
@@ -22,8 +24,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!parsed.success) {
     return NextResponse.json({ error: "Please check the details you entered." }, { status: 400 });
   }
-  const { pickupAddress, deliveryAddress, preferredPickupAt } = parsed.data;
-  if (!pickupAddress && !deliveryAddress && !preferredPickupAt) {
+  const { pickupAddress, deliveryAddress, preferredPickupAt, contactName, contactPhone } = parsed.data;
+  if (!pickupAddress && !deliveryAddress && !preferredPickupAt && !contactName && !contactPhone) {
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
   }
 
@@ -50,6 +52,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     data: {
       ...(pickupAddress ? { pickupAddress } : {}),
       ...(deliveryAddress ? { deliveryAddress } : {}),
+      ...(contactName ? { contactName } : {}),
+      ...(contactPhone ? { contactPhone } : {}),
       ...(preferredPickupAt ? { preferredPickupAt: new Date(preferredPickupAt) } : {}),
     },
   });

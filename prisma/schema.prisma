@@ -187,6 +187,8 @@ model Order {
   pickupAddress String 
   deliveryAddress String 
   preferredPickupAt DateTime? 
+  contactName String?  // set when ordering for someone else (e.g. a relative in another city)
+  contactPhone String?
  
   status OrderStatus @default(ORDER_PLACED)
  

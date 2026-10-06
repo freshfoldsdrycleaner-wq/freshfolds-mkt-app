@@ -19,6 +19,8 @@ const bodySchema = z.object({
   pickupAddress: z.string().min(3),
   deliveryAddress: z.string().min(3),
   couponCode: z.string().optional(),
+  contactName: z.string().trim().min(1).max(80).optional(),
+  contactPhone: z.string().trim().regex(/^[0-9+\s-]{10,15}$/, "Enter a valid contact phone number").optional(),
   preferredPickupAt: z.string().datetime().optional(),
   items: z.array(itemSchema).min(1),
 });
@@ -46,7 +48,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { dryCleanerId, pickupAddress, deliveryAddress, preferredPickupAt, items, couponCode } = parsed.data;
+  const { dryCleanerId, pickupAddress, deliveryAddress, preferredPickupAt, items, couponCode, contactName, contactPhone } = parsed.data;
 
   // Rule 1: can only order from an ACTIVE dry-cleaner.
   const dryCleaner = await prisma.dryCleaner.findUnique({ where: { id: dryCleanerId } });
@@ -111,6 +113,8 @@ export async function POST(req: Request) {
         dryCleanerId,
         pickupAddress,
         deliveryAddress,
+        contactName: contactName || null,
+        contactPhone: contactPhone || null,
         preferredPickupAt: preferredPickupAt ? new Date(preferredPickupAt) : undefined,
         estimatedTotal: orderTotal,
         couponCode: appliedCode,

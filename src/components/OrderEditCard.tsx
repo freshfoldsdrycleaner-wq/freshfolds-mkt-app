@@ -15,6 +15,8 @@ type OrderInfo = {
   balanceDue: number | null;
   pickupAddress?: string;
   customer?: { name: string | null; phone: string };
+  contactName?: string | null;
+  contactPhone?: string | null;
   dryCleaner?: { name: string; phone?: string | null };
 };
 
@@ -281,6 +283,28 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
           >
             📍 Open customer location in Maps
           </a>
+        </div>
+      )}
+
+      {app === "dryclean" && info?.contactName && info?.contactPhone && (
+        <div style={{ marginBottom: 12, padding: 10, background: "#fffbeb", borderRadius: 8 }}>
+          <p className="ff-label">Ordered for someone else: call this person for pickup</p>
+          <p style={{ fontSize: 14, fontWeight: 600 }}>{info.contactName}</p>
+          <p style={{ fontSize: 13, marginBottom: 6 }}>{info.contactPhone}</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <a className="ff-btn ff-btn-outline" style={{ flex: 1, textAlign: "center", textDecoration: "none" }} href={"tel:" + info.contactPhone}>
+              Call
+            </a>
+            <a
+              className="ff-btn ff-btn-outline"
+              style={{ flex: 1, textAlign: "center", textDecoration: "none" }}
+              href={"https://wa.me/" + (info.contactPhone.replace(/\D/g, "").length === 10 ? "91" : "") + info.contactPhone.replace(/\D/g, "")}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              WhatsApp
+            </a>
+          </div>
         </div>
       )}
 
