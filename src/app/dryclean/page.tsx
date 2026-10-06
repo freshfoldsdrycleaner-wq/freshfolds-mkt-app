@@ -252,6 +252,18 @@ export default function DryCleanDashboard() {
       if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "That transition isn't allowed yet.");
     }
   }
+  async function selfDeliver(steps: string[]) {
+    if (!openOrder) return;
+    try {
+      for (const status of steps) {
+        await apiFetch(`/api/orders/${openOrder.id}/status`, "dryclean", { method: "POST", body: JSON.stringify({ status }) });
+      }
+      refreshOpenOrder();
+    } catch (e) {
+      if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "Could not update delivery.");
+      refreshOpenOrder();
+    }
+  }
   async function assignDelivery(assignmentType: "PICKUP" | "DELIVERY") {
     if (!openOrder || !assignPhone.trim()) return;
     try {
@@ -526,6 +538,22 @@ export default function DryCleanDashboard() {
                 (() => {
                   const idx = STAGES.indexOf(openOrder.status);
                   const next = STAGES[idx + 1];
+                  if (openOrder.status === "PAYMENT_COMPLETED") {
+                    return (
+                      <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#f0fdf4" }}>
+                        <p className="ff-label">I will deliver myself</p>
+                        <p style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
+                          Take the clothes to the customer, then tap Delivered. The customer sees each step.
+                        </p>
+                        <button className="ff-btn ff-btn-outline" style={{ width: "100%", marginBottom: 8 }} onClick={() => selfDeliver(["DELIVERY_ASSIGNED", "OUT_FOR_DELIVERY"])}>
+                          Out for delivery
+                        </button>
+                        <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} onClick={() => selfDeliver(["DELIVERY_ASSIGNED", "OUT_FOR_DELIVERY", "DELIVERED"])}>
+                          Delivered to customer
+                        </button>
+                      </div>
+                    );
+                  }
                   return next && next !== "DELIVERY_ASSIGNED" ? (
                     <button className="ff-btn ff-btn-primary" style={{ marginBottom: 16 }} onClick={() => advanceStatus(next)}>
                       Mark as: {STAGE_LABELS[next]}
