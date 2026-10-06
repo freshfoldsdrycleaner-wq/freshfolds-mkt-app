@@ -78,6 +78,7 @@ export default function CustomerApp() {
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discountAmount: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState("");
+  const [locMsg, setLocMsg] = useState("");
   const [lastOrder, setLastOrder] = useState<{ orderNumber: string; amountPaid: number; balanceDue: number } | null>(null);
 
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
@@ -188,21 +189,37 @@ export default function CustomerApp() {
   }
 
   function shareMyLocation() {
-    setError("");
+    setLocMsg("");
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setError("Your phone does not support sharing location.");
+      setLocMsg("Your phone or browser does not support sharing location. Please type your address instead.");
       return;
     }
+    setLocMsg("Getting your location…");
+    const onPos = (pos: GeolocationPosition) => {
+      const link = "https://maps.google.com/?q=" + pos.coords.latitude.toFixed(6) + "," + pos.coords.longitude.toFixed(6);
+      setPickupAddress((prev) => {
+        const base = prev.replace(/\s*\|?\s*(My )?[Ll]ocation: ?https?:\/\/\S+/g, "").trim();
+        return base ? base + " | Location: " + link : "Location: " + link;
+      });
+      setLocMsg("✓ Location added to your pickup address.");
+    };
+    const onFail = (err: GeolocationPositionError) => {
+      if (err.code === 1) {
+        setLocMsg(
+          "Location is blocked. In Chrome tap the lock icon next to the address bar, choose Permissions or Site settings, set Location to Allow, then reload. Or switch on Location in your phone settings. You can also just type your address."
+        );
+      } else {
+        setLocMsg("Could not find your location. Switch on GPS / Location on your phone and try again, or type your address.");
+      }
+    };
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const link = "https://maps.google.com/?q=" + pos.coords.latitude.toFixed(6) + "," + pos.coords.longitude.toFixed(6);
-        setPickupAddress((prev) => {
-          const base = prev.replace(/\s*\|?\s*(My )?[Ll]ocation: ?https?:\/\/\S+/g, "").trim();
-          return base ? base + " | Location: " + link : "Location: " + link;
-        });
+      onPos,
+      (err) => {
+        if (err.code === 1) return onFail(err);
+        // second try with a quicker, less precise fix (works better indoors)
+        navigator.geolocation.getCurrentPosition(onPos, onFail, { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 });
       },
-      () => setError("Could not get your location. Please allow location access and try again."),
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   }
 
@@ -379,7 +396,9 @@ export default function CustomerApp() {
             </p>
             <label className="ff-label">Pickup address</label>
             <input className="ff-input" style={{ marginBottom: 6 }} value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Flat, street, area" />
-            <button className="ff-btn ff-btn-outline" style={{ width: "100%", marginBottom: 10 }} onClick={shareMyLocation}>📍 Share my current location</button>
+            <button className="ff-btn ff-btn-outline" style={{ width: "100%", marginBottom: 6 }} onClick={shareMyLocation}>📍 Share my current location</button>
+            {locMsg && <p style={{ fontSize: 12, color: locMsg.startsWith("✓") ? "#059669" : locMsg.startsWith("Getting") ? "#64748b" : "#b91c1c", marginBottom: 10 }}>{locMsg}</p>}
+            {!locMsg && <div style={{ height: 4 }} />}
             <label className="ff-label">Delivery address</label>
             <input className="ff-input" style={{ marginBottom: 10 }} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Same or different address" />
             <label className="ff-label">Preferred pickup time (optional)</label>

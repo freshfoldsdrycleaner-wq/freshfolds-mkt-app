@@ -27,6 +27,8 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<OrderInfo | null>(null);
   const [advance, setAdvance] = useState("");
+  const [locStatus, setLocStatus] = useState("");
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -47,31 +49,42 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   function shareMyLocation() {
     setMsg("");
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setMsg("Your phone does not support sharing location.");
+      setMsg("Your phone or browser does not support sharing location. Please type your address instead.");
       return;
     }
+    setLocStatus("Getting your location…");
+    const onPos = (pos: GeolocationPosition) => {
+      const link =
+        "https://maps.google.com/?q=" + pos.coords.latitude.toFixed(6) + "," + pos.coords.longitude.toFixed(6);
+      setPickup((prev) => (prev.trim() ? prev.trim() + " | Location: " + link : "Location: " + link));
+      setLocStatus("✓ Location added.");
+    };
+    const onFail = (err: GeolocationPositionError) => {
+      setLocStatus(
+        err.code === 1
+          ? "Location is blocked. In Chrome tap the lock icon next to the address bar, open Permissions, set Location to Allow, then reload."
+          : "Could not find your location. Switch on GPS / Location on your phone and try again."
+      );
+    };
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const link =
-          "https://maps.google.com/?q=" + pos.coords.latitude.toFixed(6) + "," + pos.coords.longitude.toFixed(6);
-        setPickup((prev) => (prev.trim() ? prev.trim() + " | Location: " + link : "Location: " + link));
+      onPos,
+      (err) => {
+        if (err.code === 1) return onFail(err);
+        navigator.geolocation.getCurrentPosition(onPos, onFail, { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 });
       },
-      () => setMsg("Could not get your location. Please allow location access and try again."),
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   }
 
   async function cancelOrder() {
-    if (!window.confirm("Cancel this order? This cannot be undone.")) return;
     setBusy(true);
     setMsg("");
     try {
       await apiFetch("/api/orders/" + orderId + "/cancel", app, { method: "POST" });
       onDone();
     } catch (e) {
-      const m = (e as Error).message || "Could not cancel the order.";
-      setMsg(m);
-      window.alert("Could not cancel: " + m);
+      setConfirmCancel(false);
+      setMsg((e as Error).message || "Could not cancel the order.");
     } finally {
       setBusy(false);
     }
@@ -271,6 +284,11 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
           >
             📍 Share my current location
           </button>
+          {locStatus && (
+            <p style={{ fontSize: 12, marginBottom: 8, color: locStatus.startsWith("✓") ? "#059669" : locStatus.startsWith("Getting") ? "#64748b" : "#b91c1c" }}>
+              {locStatus}
+            </p>
+          )}
           <label className="ff-label">New delivery address (leave blank to keep)</label>
           <input className="ff-input" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
           <label className="ff-label">New preferred pickup time (optional)</label>
@@ -290,14 +308,38 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
           </button>
         </div>
       )}
-      <button
-        className="ff-btn ff-btn-outline"
-        style={{ width: "100%", color: "#dc2626" }}
-        disabled={busy}
-        onClick={cancelOrder}
-      >
-        Cancel order
-      </button>
+      {!confirmCancel ? (
+        <button
+          className="ff-btn ff-btn-outline"
+          style={{ width: "100%", color: "#dc2626" }}
+          disabled={busy}
+          onClick={() => setConfirmCancel(true)}
+        >
+          Cancel order
+        </button>
+      ) : (
+        <div style={{ border: "1px solid #fecaca", background: "#fef2f2", borderRadius: 8, padding: 10 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Cancel this whole order?</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="ff-btn ff-btn-primary"
+              style={{ flex: 1, background: "#dc2626", borderColor: "#dc2626" }}
+              disabled={busy}
+              onClick={cancelOrder}
+            >
+              {busy ? "Cancelling…" : "Yes, cancel order"}
+            </button>
+            <button
+              className="ff-btn ff-btn-outline"
+              style={{ flex: 1 }}
+              disabled={busy}
+              onClick={() => setConfirmCancel(false)}
+            >
+              No, keep it
+            </button>
+          </div>
+        </div>
+      )}
       {msg && <p style={{ fontSize: 12, color: "#dc2626", marginTop: 8 }}>{msg}</p>}
       <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
         Orders can be changed or cancelled until pickup is recorded.
