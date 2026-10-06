@@ -21,7 +21,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     where: { id: params.id },
     include: {
       items: true,
-      dryCleaner: { select: { id: true, businessName: true, ownerId: true, address: true } },
+      dryCleaner: { select: { id: true, businessName: true, ownerId: true, address: true, phone: true } },
       customer: { select: { name: true, phone: true } },
       pickupPhotos: true,
       defects: true,
@@ -43,7 +43,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       id: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
-      dryCleaner: { id: order.dryCleaner.id, name: order.dryCleaner.businessName, address: order.dryCleaner.address },
+      dryCleaner: { id: order.dryCleaner.id, name: order.dryCleaner.businessName, address: order.dryCleaner.address, phone: order.dryCleaner.phone },
       customer: isOwnerCustomer ? undefined : { name: order.customer.name, phone: order.customer.phone },
       pickupAddress: order.pickupAddress,
       deliveryAddress: order.deliveryAddress,
