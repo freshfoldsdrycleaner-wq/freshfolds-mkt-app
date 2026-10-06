@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyAdmins } from "@/lib/providers/notification";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { haversineDistanceKm, estimateMinutesFromKm } from "@/lib/geo";
@@ -114,6 +115,11 @@ export async function POST(req: Request) {
 
   const dryCleaner = await prisma.dryCleaner.create({
     data: { ownerId: session.userId, status: "PENDING", ...parsed.data },
+  });
+
+  await notifyAdmins({
+    title: "New dry-cleaner to approve",
+    message: `${dryCleaner.businessName} has registered and is waiting for your approval.`,
   });
 
   return NextResponse.json({ dryCleaner: { id: dryCleaner.id, status: dryCleaner.status } }, { status: 201 });

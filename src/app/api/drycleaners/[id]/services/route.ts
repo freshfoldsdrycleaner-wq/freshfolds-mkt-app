@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyAdmins } from "@/lib/providers/notification";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
@@ -74,6 +75,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const service = await prisma.service.create({
     data: { dryCleanerId: params.id, ...payload } as any,
   });
+  if (session.role !== "FRESHFOLD_ADMIN") {
+    await notifyAdmins({ title: "Service waiting for approval", message: `A dry-cleaner added "${service.itemName}" and needs your approval.` });
+  }
 
   return NextResponse.json(
     { service: { ...service, price: Number(service.price), discountPercent: Number(service.discountPercent) } },

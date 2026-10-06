@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyAdmins } from "@/lib/providers/notification";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
@@ -68,6 +69,7 @@ export async function PATCH(
     }
     const patch = proposeRemoval();
     const updated = await prisma.service.update({ where: { id: service.id }, data: patch as any });
+    await notifyAdmins({ title: "Service change to approve", message: `A dry-cleaner asked to remove "${service.itemName}".` });
     return NextResponse.json({ service: { ...updated, price: Number(updated.price), discountPercent: Number(updated.discountPercent) } });
   }
 
@@ -78,5 +80,6 @@ export async function PATCH(
   }
   const patch = proposeEdit(parsed.data.changes);
   const updated = await prisma.service.update({ where: { id: service.id }, data: patch as any });
+  await notifyAdmins({ title: "Service change to approve", message: `A dry-cleaner changed "${service.itemName}" and needs your approval.` });
   return NextResponse.json({ service: { ...updated, price: Number(updated.price), discountPercent: Number(updated.discountPercent) } });
 }
