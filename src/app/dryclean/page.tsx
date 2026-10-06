@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
+import OrderEditCard from "@/components/OrderEditCard";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -493,6 +494,10 @@ export default function DryCleanDashboard() {
                   </div>
                   <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>The delivery staff must already have a Fresh Fold account (registered via phone OTP).</p>
                 </div>
+              )}
+
+              {openOrder.status === "ORDER_PLACED" && (
+                <OrderEditCard orderId={openOrder.id} app="dryclean" onDone={refreshOpenOrder} />
               )}
 
               {openOrder.status === "PICKUP_IN_PROGRESS" && (
