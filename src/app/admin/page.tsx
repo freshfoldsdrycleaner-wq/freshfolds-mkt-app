@@ -40,6 +40,8 @@ interface DryCleaner {
   termsVersion?: string | null;
   termsAcceptedAt?: string | null;
   termsAcceptedBy?: string | null;
+  avgRating?: number | null;
+  reviewCount?: number;
 }
 interface PendingService {
   id: string;
@@ -285,7 +287,7 @@ export default function AdminDashboard() {
                   <tr key={dc.id}>
                     <td><div style={{ fontWeight: 600 }}>{dc.businessName}</div><div style={{ color: "#94a3b8" }}>{dc.address}</div><div style={{ color: dc.termsAcceptedAt ? "#059669" : "#b45309", fontSize: 12 }}>{dc.termsAcceptedAt ? "Terms accepted by " + (dc.termsAcceptedBy || "owner") + " on " + new Date(dc.termsAcceptedAt).toLocaleDateString("en-IN") : "Terms not accepted yet"}</div></td>
                     <td>{dc.ownerName || "—"}<div style={{ color: "#94a3b8" }}>{dc.ownerPhone}</div></td>
-                    <td><Badge tone={statusTone(dc.status)}>{dc.status}</Badge></td>
+                    <td><Badge tone={statusTone(dc.status)}>{dc.status}</Badge><div style={{ fontSize: 12, marginTop: 4, color: "#f59e0b" }}>{dc.reviewCount ? `★ ${dc.avgRating} (${dc.reviewCount})` : <span style={{ color: "#94a3b8" }}>No ratings yet</span>}</div></td>
                     <td style={{ color: "#94a3b8" }}>{new Date(dc.createdAt).toLocaleDateString("en-IN")}</td>
                     <td style={{ textAlign: "right" }}>
                       <button className="ff-btn ff-btn-outline" style={{ marginRight: 6 }} onClick={() => setReviewsFor(reviewsFor === dc.id ? null : dc.id)}>Ratings</button>

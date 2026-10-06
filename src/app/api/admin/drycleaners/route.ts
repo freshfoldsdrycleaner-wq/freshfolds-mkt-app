@@ -27,6 +27,9 @@ export async function GET(req: Request) {
     orderBy: { createdAt: "desc" },
   });
 
+  const agg = await prisma.review.groupBy({ by: ["dryCleanerId"], _avg: { rating: true }, _count: { _all: true } });
+  const ratingOf = new Map(agg.map((a) => [a.dryCleanerId, a]));
+
   return NextResponse.json({
     dryCleaners: dryCleaners.map((dc) => ({
       id: dc.id,
@@ -39,6 +42,8 @@ export async function GET(req: Request) {
       termsAcceptedAt: dc.termsAcceptedAt,
       termsAcceptedBy: dc.termsAcceptedBy,
       createdAt: dc.createdAt,
+      avgRating: ratingOf.get(dc.id)?._avg.rating != null ? Math.round(ratingOf.get(dc.id)!._avg.rating! * 10) / 10 : null,
+      reviewCount: ratingOf.get(dc.id)?._count._all ?? 0,
     })),
   });
 }
