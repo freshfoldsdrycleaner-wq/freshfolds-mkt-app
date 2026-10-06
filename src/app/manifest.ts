@@ -5,6 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Fresh Fold",
     short_name: "Fresh Fold",
     description: "Your local dry-cleaning service, simplified.",
+    start_url: "/",
     display: "standalone",
     background_color: "#f8fafc",
     theme_color: "#2563eb",
