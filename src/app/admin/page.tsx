@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import CouponAdmin from "@/components/CouponAdmin";
 import PayoutAdmin from "@/components/PayoutAdmin";
+import AllOrdersAdmin from "@/components/AllOrdersAdmin";
 
 const inr = (n: number | null | undefined) =>
   n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
-type Tab = "overview" | "drycleaners" | "services" | "ledger" | "offers" | "payouts";
+type Tab = "overview" | "drycleaners" | "services" | "ledger" | "offers" | "payouts" | "allorders";
 
 interface Stats {
   totalCustomers: number;
@@ -208,6 +209,7 @@ export default function AdminDashboard() {
       <div className="ff-tabs">
         {([
           ["overview", "Overview"],
+          ["allorders", "Orders & Customers"],
           ["drycleaners", "Dry-Cleaners" + (stats ? ` (${stats.dryCleanersByStatus.PENDING || 0} pending)` : "")],
           ["services", "Service Changes" + (stats ? ` (${stats.pendingServiceChanges})` : "")],
           ["ledger", "Ledger"],
@@ -334,6 +336,8 @@ export default function AdminDashboard() {
       {tab === "offers" && <CouponAdmin />}
 
       {tab === "payouts" && <PayoutAdmin />}
+
+      {tab === "allorders" && <AllOrdersAdmin />}
 
       {tab === "ledger" && (
         <section className="ff-card">
