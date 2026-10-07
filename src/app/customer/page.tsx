@@ -23,7 +23,7 @@ const STAGE_LABELS: Record<string, string> = {
   ORDER_PLACED: "Order Placed", PICKUP_ASSIGNED: "Pickup Assigned", PICKUP_IN_PROGRESS: "Pickup on the Way",
   PICKED_UP: "Clothes Picked Up", RECEIVED_BY_DRY_CLEANER: "Received at Store", INSPECTION: "Inspection",
   PROCESSING: "Dry Cleaning in Progress", QUALITY_CHECK: "Quality Check", COMPLETED: "Dry Cleaning Completed",
-  PAYMENT_PENDING: "Payment Pending", PAYMENT_COMPLETED: "Payment Completed", DELIVERY_ASSIGNED: "Delivery Assigned",
+  PAYMENT_PENDING: "Ready · Pay on Delivery", PAYMENT_COMPLETED: "Payment Completed", DELIVERY_ASSIGNED: "Delivery Assigned",
   OUT_FOR_DELIVERY: "Out for Delivery", DELIVERED: "Delivered", CLOSED: "Closed", CANCELLED: "Cancelled",
 };
 const DEFAULT_LOCATION = { lat: 28.6139, lng: 77.209 }; // New Delhi, used if geolocation is unavailable/denied
@@ -45,7 +45,7 @@ interface OrderRow {
 interface Defect { defectType: string; description: string | null; photoUrl: string | null; }
 interface OrderDetail extends OrderRow {
   pickupAddress: string; deliveryAddress: string; contactName?: string | null; contactPhone?: string | null; preferredPickupAt: string | null;
-  couponCode?: string | null; discountAmount?: number;
+  couponCode?: string | null; discountAmount?: number; acceptedAt?: string | null; declineReason?: string | null;
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
   defects: Defect[];
   pickupConditionConfirmedAt?: string | null;
@@ -595,7 +595,10 @@ export default function CustomerApp() {
           <>
             <button className="ff-btn ff-btn-outline" style={{ margin: "12px 0" }} onClick={() => setOpenOrder(null)}>← Back to orders</button>
             <h2 style={{ margin: "0 0 4px" }}>{openOrder.orderNumber}</h2>
-            <p style={{ marginBottom: 8 }}><Badge tone={statusTone(openOrder.status)}>{STAGE_LABELS[openOrder.status] || openOrder.status}</Badge></p>
+            <p style={{ marginBottom: 8 }}><Badge tone={statusTone(openOrder.status)}>{openOrder.status === "ORDER_PLACED" ? (openOrder.acceptedAt ? "Accepted by dry-cleaner" : "Waiting for dry-cleaner to accept") : (STAGE_LABELS[openOrder.status] || openOrder.status)}</Badge></p>
+            {openOrder.status === "CANCELLED" && openOrder.declineReason && (
+              <p style={{ fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>The dry-cleaner could not take this order: {openOrder.declineReason}</p>
+            )}
             {openOrder.preferredPickupAt && (
               <p style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
                 Requested pickup: {new Date(openOrder.preferredPickupAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}

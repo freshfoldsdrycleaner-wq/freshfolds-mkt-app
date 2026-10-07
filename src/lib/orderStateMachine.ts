@@ -29,7 +29,8 @@ const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PROCESSING: ["QUALITY_CHECK"],
   QUALITY_CHECK: ["COMPLETED"],
   COMPLETED: ["PAYMENT_PENDING"],
-  PAYMENT_PENDING: ["PAYMENT_COMPLETED"],
+  // Soft launch: the dry-cleaner can send the order out and collect the full payment on delivery.
+  PAYMENT_PENDING: ["PAYMENT_COMPLETED", "DELIVERY_ASSIGNED"],
   PAYMENT_COMPLETED: ["DELIVERY_ASSIGNED"],
   DELIVERY_ASSIGNED: ["OUT_FOR_DELIVERY"],
   OUT_FOR_DELIVERY: ["DELIVERED"],

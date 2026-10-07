@@ -43,7 +43,7 @@ interface OrderRow {
 }
 interface OrderDetail extends OrderRow {
   pickupAddress: string; deliveryAddress: string; preferredPickupAt: string | null;
-  couponCode?: string | null; discountAmount?: number;
+  couponCode?: string | null; discountAmount?: number; acceptedAt?: string | null;
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
 }
 
@@ -255,6 +255,16 @@ export default function DryCleanDashboard() {
     } catch (e) {
       if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "That transition isn't allowed yet.");
     }
+  }
+  async function oneTap(step: "READY" | "OUT_FOR_DELIVERY" | "DELIVERED") {
+    if (!openOrder) return;
+    setError("");
+    try {
+      await apiFetch(`/api/orders/${openOrder.id}/progress`, "dryclean", { method: "POST", body: JSON.stringify({ step }) });
+    } catch (e) {
+      if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "Could not update the order.");
+    }
+    refreshOpenOrder();
   }
   async function selfDeliver(steps: string[]) {
     if (!openOrder) return;
@@ -499,7 +509,7 @@ export default function DryCleanDashboard() {
             <div className="ff-card" style={{ padding: 20 }}>
               <button className="ff-btn ff-btn-outline" style={{ marginBottom: 16 }} onClick={() => setOpenOrder(null)}>← Back to orders</button>
               <h2 style={{ margin: "0 0 4px" }}>{openOrder.orderNumber}</h2>
-              <p style={{ color: "#94a3b8", marginBottom: 16 }}><Badge tone={statusTone(openOrder.status)}>{STAGE_LABELS[openOrder.status] || openOrder.status}</Badge></p>
+              <p style={{ color: "#94a3b8", marginBottom: 16 }}><Badge tone={statusTone(openOrder.status)}>{openOrder.status === "ORDER_PLACED" ? (openOrder.acceptedAt ? "Accepted · pickup pending" : "Waiting for you to accept") : openOrder.status === "PAYMENT_PENDING" ? "Ready · pay on delivery" : (STAGE_LABELS[openOrder.status] || openOrder.status)}</Badge></p>
 
               <div style={{ marginBottom: 16 }}>
                 <p className="ff-label">Items</p>
@@ -522,12 +532,12 @@ export default function DryCleanDashboard() {
                 )}
               </div>
 
-              {(openOrder.status === "ORDER_PLACED" || openOrder.status === "PAYMENT_COMPLETED") && (
+              {openOrder.status === "PAYMENT_COMPLETED" && (
                 <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#f8fafc" }}>
-                  <p className="ff-label">{openOrder.status === "ORDER_PLACED" ? "Assign pickup" : "Assign delivery"}</p>
+                  <p className="ff-label">Assign delivery</p>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input className="ff-input" placeholder="Delivery staff phone" value={assignPhone} onChange={(e) => setAssignPhone(e.target.value)} />
-                    <button className="ff-btn ff-btn-primary" onClick={() => assignDelivery(openOrder.status === "ORDER_PLACED" ? "PICKUP" : "DELIVERY")}>Assign</button>
+                    <button className="ff-btn ff-btn-primary" onClick={() => assignDelivery("DELIVERY")}>Assign</button>
                   </div>
                   <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>The delivery staff must already have a Fresh Fold account (registered via phone OTP).</p>
                 </div>
@@ -545,14 +555,28 @@ export default function DryCleanDashboard() {
                 </p>
               )}
 
-              {openOrder.status === "PAYMENT_PENDING" && (
-                <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#fffbeb" }}>
-                  <p style={{ fontSize: 13, marginBottom: 8 }}>Balance due: <strong>{inr(openOrder.balanceDue)}</strong></p>
-                  <button className="ff-btn ff-btn-primary" onClick={confirmPayment}>Confirm Payment Received</button>
+              {openOrder.status === "PROCESSING" && (
+                <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#eff6ff" }}>
+                  <p style={{ fontSize: 13, marginBottom: 8 }}>Dry cleaning is in progress. The customer can see this.</p>
+                  <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} onClick={() => oneTap("READY")}>Order ready</button>
                 </div>
               )}
 
-              {!["ORDER_PLACED", "PICKUP_IN_PROGRESS", "PAYMENT_PENDING", "CLOSED", "CANCELLED"].includes(openOrder.status) && (
+              {openOrder.status === "PAYMENT_PENDING" && (
+                <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#fffbeb" }}>
+                  <p style={{ fontSize: 13, marginBottom: 8 }}>Clothes are ready. Balance to collect on delivery: <strong>{inr(openOrder.balanceDue)}</strong></p>
+                  <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} onClick={() => oneTap("OUT_FOR_DELIVERY")}>Out for delivery</button>
+                </div>
+              )}
+
+              {openOrder.status === "OUT_FOR_DELIVERY" && (
+                <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#f0fdf4" }}>
+                  <p style={{ fontSize: 13, marginBottom: 8 }}>Collect <strong>{inr(openOrder.balanceDue)}</strong> from the customer, then tap the button.</p>
+                  <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} onClick={() => oneTap("DELIVERED")}>Delivered · full payment received</button>
+                </div>
+              )}
+
+              {!["ORDER_PLACED", "PICKUP_IN_PROGRESS", "PROCESSING", "PAYMENT_PENDING", "OUT_FOR_DELIVERY", "DELIVERED", "CLOSED", "CANCELLED"].includes(openOrder.status) && (
                 (() => {
                   const idx = STAGES.indexOf(openOrder.status);
                   const next = STAGES[idx + 1];

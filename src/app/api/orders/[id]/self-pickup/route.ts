@@ -52,6 +52,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (order.status !== "ORDER_PLACED") {
     return NextResponse.json({ error: "Pickup can only be recorded for a newly placed order." }, { status: 409 });
   }
+  if (isOwner && !order.acceptedAt) {
+    return NextResponse.json({ error: "Please accept the order first." }, { status: 409 });
+  }
 
   const balanceDue = Number(order.balanceDue ?? order.estimatedTotal);
   if (advance > balanceDue) {
@@ -62,6 +65,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const s1 = assertTransition(order.status, "PICKUP_ASSIGNED");
     const s2 = assertTransition(s1, "PICKUP_IN_PROGRESS");
     const s3 = assertTransition(s2, "PICKED_UP", { hasPickupConditionReport: true });
+    // One tap: pickup, receipt, inspection and the start of cleaning all happen together.
+    const s4 = assertTransition(s3, "RECEIVED_BY_DRY_CLEANER");
+    const s5 = assertTransition(s4, "INSPECTION");
+    const s6 = assertTransition(s5, "PROCESSING");
 
     const updated = await prisma.$transaction(async (tx) => {
       if (advance > 0) {
@@ -78,7 +85,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return tx.order.update({
         where: { id: order.id },
         data: {
-          status: s3,
+          status: s6,
           amountPaid: Number(order.amountPaid) + advance,
           balanceDue: balanceDue - advance,
           pickupConditionConfirmedAt: new Date(),
@@ -89,11 +96,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await getNotificationProvider().send({
       userId: order.customerId,
       orderId: order.id,
-      title: "Clothes picked up",
+      title: "Clothes picked up, cleaning started",
       message:
         advance > 0
-          ? `${order.orderNumber}: picked up. Advance of ${advance} received.`
-          : `${order.orderNumber}: your clothes have been picked up.`,
+          ? `${order.orderNumber}: picked up, advance of Rs ${advance} received. Dry cleaning is now in progress.`
+          : `${order.orderNumber}: your clothes were picked up. Dry cleaning is now in progress.`,
     });
 
     return NextResponse.json({

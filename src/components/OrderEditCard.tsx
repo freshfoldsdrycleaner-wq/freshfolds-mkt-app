@@ -17,6 +17,7 @@ type OrderInfo = {
   balanceDue: number | null;
   amountPaid?: number;
   advanceClaimedAt?: string | null;
+  acceptedAt?: string | null;
   pickupAddress?: string;
   customer?: { name: string | null; phone: string };
   contactName?: string | null;
@@ -37,6 +38,9 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   const [advanceTo, setAdvanceTo] = useState<"FRESHFOLD" | "VENDOR">("FRESHFOLD");
   const [locStatus, setLocStatus] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [ver, setVer] = useState(0);
+  const [declining, setDeclining] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -52,7 +56,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
     return () => {
       alive = false;
     };
-  }, [orderId, app]);
+  }, [orderId, app, ver]);
 
   function shareMyLocation() {
     setMsg("");
@@ -166,18 +170,29 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
     }
   }
 
+  async function respond(action: "ACCEPT" | "DECLINE") {
+    setBusy(true);
+    setMsg("");
+    try {
+      await apiFetch("/api/orders/" + orderId + "/respond", "dryclean", {
+        method: "POST",
+        body: JSON.stringify({ action, reason: declineReason.trim() || undefined }),
+      });
+      setVer((v) => v + 1);
+      onDone();
+    } catch (e) {
+      setMsg((e as Error).message || "Could not save your answer.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function selfPickup() {
     const amount = Number(advance);
     if (!Number.isFinite(amount) || amount < 0) {
       setMsg("Enter the amount collected (0 if nothing).");
       return;
     }
-    if (
-      !window.confirm(
-        "Confirm: you picked up the clothes and collected Rs " + amount + " from the customer?"
-      )
-    )
-      return;
     setBusy(true);
     setMsg("");
     try {
@@ -332,9 +347,31 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
         </div>
       )}
 
-      {app === "dryclean" && (
+      {app === "dryclean" && info && !info.acceptedAt && (
+        <div className="ff-card" style={{ padding: 12, marginBottom: 12, background: "#fffbeb" }}>
+          <p className="ff-label">New order: do you want to take it?</p>
+          <p style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>The customer is told as soon as you answer.</p>
+          {!declining ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="ff-btn ff-btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => respond("ACCEPT")}>Accept order</button>
+              <button className="ff-btn ff-btn-danger" style={{ flex: 1 }} disabled={busy} onClick={() => setDeclining(true)}>Decline</button>
+            </div>
+          ) : (
+            <>
+              <input className="ff-input" style={{ marginBottom: 8 }} placeholder="Reason (optional), e.g. too far, closed today" value={declineReason} onChange={(e) => setDeclineReason(e.target.value)} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="ff-btn ff-btn-danger" style={{ flex: 1 }} disabled={busy} onClick={() => respond("DECLINE")}>Yes, decline</button>
+                <button className="ff-btn ff-btn-outline" style={{ flex: 1 }} disabled={busy} onClick={() => setDeclining(false)}>Back</button>
+              </div>
+            </>
+          )}
+          {msg && <p style={{ fontSize: 12, marginTop: 8, color: "#dc2626" }}>{msg}</p>}
+        </div>
+      )}
+
+      {app === "dryclean" && info?.acceptedAt && (
         <div style={{ marginBottom: 12 }}>
-          <p className="ff-label">I will pick up myself</p>
+          <p className="ff-label">Pickup</p>
           <label className="ff-label">Inspection photos of the clothes</label>
           <label
             className="ff-btn ff-btn-outline"
@@ -429,7 +466,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
             disabled={busy}
             onClick={selfPickup}
           >
-            Picked up and payment received
+            Picked up · advance received · start cleaning
           </button>
         </div>
       )}
