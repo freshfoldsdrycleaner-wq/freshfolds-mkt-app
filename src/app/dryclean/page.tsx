@@ -335,7 +335,7 @@ export default function DryCleanDashboard() {
     <main style={{ maxWidth: 1000, margin: "0 auto", padding: "24px 20px 60px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>FF</div>
+          <button type="button" aria-label="Go to home" onClick={() => { setOpenOrder(null); setTab("overview"); }} style={{ width: 32, height: 32, borderRadius: 8, background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", padding: 0 }}>FF</button>
           <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{dc ? dc.businessName : "Fresh Fold for Business"}</h1>
         </div>
         <button className="ff-btn ff-btn-outline" onClick={logout}>Log out</button>

@@ -357,7 +357,7 @@ export default function CustomerApp() {
         <div className="cx-hero">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div className="cx-logo">FF</div>
+              <button type="button" aria-label="Go to home" className="cx-logo" style={{ border: "none", cursor: "pointer", padding: 0 }} onClick={() => { setTab("home"); setScreen("list"); setOpenOrder(null); }}>FF</button>
               <span style={{ fontWeight: 700, fontSize: 15 }}>Fresh Folds</span>
             </div>
             {profile?.name && <span style={{ fontSize: 12, color: "#c9ecee" }}>Hi, {profile.name.split(" ")[0]}</span>}

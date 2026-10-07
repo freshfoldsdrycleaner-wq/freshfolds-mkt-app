@@ -200,9 +200,9 @@ export default function AdminDashboard() {
     <main style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 60px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>
+          <button type="button" aria-label="Go to home" onClick={() => setTab("overview")} style={{ width: 32, height: 32, borderRadius: 8, background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", padding: 0 }}>
             FF
-          </div>
+          </button>
           <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Fresh Fold Admin</h1>
         </div>
         <button className="ff-btn ff-btn-outline" onClick={logout}>Log out</button>
