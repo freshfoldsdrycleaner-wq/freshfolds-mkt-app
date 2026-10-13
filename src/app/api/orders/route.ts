@@ -91,21 +91,24 @@ export async function POST(req: Request) {
   ) / 100;
 
   // Optional admin-created offer code: computed here on the server from the
-  // customer subtotal. Offers are paid for by Fresh Folds, not the dry-cleaner.
+  // customer subtotal. Fresh Folds' own codes are paid by Fresh Folds; a shop's own
+  // code is paid by that dry-cleaner out of his amount.
   let appliedCode: string | null = null;
   let discountAmount = 0;
+  let byDryCleaner = false;
   if (couponCode && couponCode.trim()) {
-    const result = await evaluateCoupon(couponCode, priced.estimatedTotal, session.userId);
+    const result = await evaluateCoupon(couponCode, priced.estimatedTotal, session.userId, dryCleanerId);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
     appliedCode = result.code;
     discountAmount = result.discountAmount;
+    byDryCleaner = result.byDryCleaner;
   }
   const orderTotal = Math.round((priced.estimatedTotal - discountAmount) * 100) / 100;
 
   // Fresh Folds' share is whatever the customer pays above the dry-cleaner's own amount.
   const commission = {
-    commissionAmount: Math.round((orderTotal - dryCleanerAmount) * 100) / 100,
-    dryCleanerNetAmount: dryCleanerAmount,
+    commissionAmount: Math.round((orderTotal - (dryCleanerAmount - (byDryCleaner ? discountAmount : 0))) * 100) / 100,
+    dryCleanerNetAmount: Math.round((dryCleanerAmount - (byDryCleaner ? discountAmount : 0)) * 100) / 100,
   };
 
   const orderNumber = generateOrderNumber();
@@ -124,6 +127,7 @@ export async function POST(req: Request) {
         estimatedTotal: orderTotal,
         couponCode: appliedCode,
         discountAmount,
+        discountByDryCleaner: byDryCleaner,
         commissionRate: DEFAULT_COMMISSION_RATE,
         markupPricing: true,
         commissionAmount: commission.commissionAmount,

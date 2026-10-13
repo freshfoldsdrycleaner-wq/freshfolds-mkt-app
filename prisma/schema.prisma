@@ -192,6 +192,7 @@ model Order {
   preferredPickupAt DateTime? 
   advanceClaimedAt DateTime? // customer says they paid the advance to Fresh Folds UPI; admin confirms
   acceptedAt         DateTime?
+  discountByDryCleaner Boolean @default(false) // true: the offer is paid from the dry-cleaner's amount
   markupPricing      Boolean   @default(false) // true: customer total = dry-cleaner price + app fee on top
   declineReason      String?
   advanceRef String?
@@ -374,7 +375,10 @@ model Coupon {
   usageLimit       Int?
   perCustomerLimit Int       @default(1)
   active           Boolean   @default(true)
+  dryCleanerId     String? // set: a shop's own offer, valid only for that dry-cleaner and paid by him
   createdAt        DateTime  @default(now())
+
+  @@index([dryCleanerId])
 }
 
 // Money Fresh Folds has paid out to a dry-cleaner (advances collected by

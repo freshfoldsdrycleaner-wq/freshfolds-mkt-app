@@ -8,6 +8,7 @@ import OrderPhotos from "@/components/OrderPhotos";
 import { ReviewsList } from "@/components/Reviews";
 import DryCleanerTermsForm from "@/components/DryCleanerTermsForm";
 import PushSetup from "@/components/PushSetup";
+import ShopOffers from "@/components/ShopOffers";
 import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
 
 const inr = (n: number | null | undefined) =>
@@ -43,7 +44,7 @@ interface OrderRow {
 }
 interface OrderDetail extends OrderRow {
   pickupAddress: string; deliveryAddress: string; preferredPickupAt: string | null;
-  couponCode?: string | null; discountAmount?: number; acceptedAt?: string | null; markupPricing?: boolean;
+  couponCode?: string | null; discountAmount?: number; discountByDryCleaner?: boolean; acceptedAt?: string | null; markupPricing?: boolean;
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
 }
 
@@ -65,7 +66,7 @@ function statusTone(status: string): "green" | "amber" | "red" | "slate" {
   return "slate";
 }
 
-type Tab = "overview" | "services" | "orders" | "reviews";
+type Tab = "overview" | "services" | "orders" | "offers" | "reviews";
 
 export default function DryCleanDashboard() {
   const router = useRouter();
@@ -418,7 +419,7 @@ export default function DryCleanDashboard() {
 
           {!openOrder && (
             <div className="ff-tabs">
-              {([["overview", "Overview"], ["services", `Services${services ? ` (${services.length})` : ""}`], ["orders", `Orders${orders ? ` (${orders.length})` : ""}`], ["reviews", "Ratings"]] as [Tab, string][]).map(([id, label]) => (
+              {([["overview", "Overview"], ["services", `Services${services ? ` (${services.length})` : ""}`], ["orders", `Orders${orders ? ` (${orders.length})` : ""}`], ["offers", "Offers"], ["reviews", "Ratings"]] as [Tab, string][]).map(([id, label]) => (
                 <button key={id} className={`ff-tab ${tab === id ? "ff-tab-active" : ""}`} onClick={() => setTab(id)}>{label}</button>
               ))}
             </div>
@@ -435,6 +436,7 @@ export default function DryCleanDashboard() {
             </div>
           )}
 
+          {!openOrder && tab === "offers" && <ShopOffers />}
           {!openOrder && tab === "reviews" && <ReviewsList dryCleanerId={dc.id} app="dryclean" />}
 
           {!openOrder && tab === "services" && (
@@ -585,7 +587,7 @@ export default function DryCleanDashboard() {
                 ))}
                 {openOrder.couponCode && Number(openOrder.discountAmount || 0) > 0 && (
                   <div style={{ fontSize: 13, marginTop: 4, color: "#059669" }}>
-                    Offer {openOrder.couponCode}: customer gets {inr(openOrder.discountAmount)} off. {openOrder.markupPricing ? "Fresh Folds pays for this offer, your amount does not change." : "Already included in the totals below."}
+                    Offer {openOrder.couponCode}: customer gets {inr(openOrder.discountAmount)} off. {openOrder.markupPricing ? (openOrder.discountByDryCleaner ? "This is your own offer, so it is taken from your amount." : "Fresh Folds pays for this offer, your amount does not change.") : "Already included in the totals below."}
                   </div>
                 )}
               </div>

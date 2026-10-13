@@ -4,14 +4,12 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-/** Offers are paid for by Fresh Folds out of its app fee, so they can never be more than this share of the order. */
-
 export function normalizeCode(code: string): string {
   return code.trim().toUpperCase();
 }
 
 export type CouponResult =
-  | { ok: true; code: string; discountAmount: number; label: string }
+  | { ok: true; code: string; discountAmount: number; label: string; byDryCleaner: boolean }
   | { ok: false; error: string };
 
 /**
@@ -22,7 +20,8 @@ export type CouponResult =
 export async function evaluateCoupon(
   rawCode: string,
   subtotal: number,
-  customerId: string
+  customerId: string,
+  dryCleanerId?: string
 ): Promise<CouponResult> {
   const code = normalizeCode(rawCode);
   if (!code) return { ok: false, error: "Enter an offer code." };
@@ -31,6 +30,9 @@ export async function evaluateCoupon(
   if (!coupon || !coupon.active) return { ok: false, error: "This offer code is not valid." };
   if (coupon.expiresAt && coupon.expiresAt.getTime() < Date.now()) {
     return { ok: false, error: "This offer code has expired." };
+  }
+  if (coupon.dryCleanerId && coupon.dryCleanerId !== dryCleanerId) {
+    return { ok: false, error: "This offer is only for the dry-cleaner who created it." };
   }
   const minOrder = Number(coupon.minOrderValue);
   if (subtotal < minOrder) {
@@ -62,5 +64,5 @@ export async function evaluateCoupon(
     coupon.discountType === "PERCENT"
       ? `${Number(coupon.discountValue)}% off`
       : `Rs ${Number(coupon.discountValue)} off`;
-  return { ok: true, code, discountAmount: discount, label };
+  return { ok: true, code, discountAmount: discount, label, byDryCleaner: !!coupon.dryCleanerId };
 }

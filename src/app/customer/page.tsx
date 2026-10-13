@@ -90,6 +90,7 @@ export default function CustomerApp() {
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discountAmount: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState("");
+  const [shopOffers, setShopOffers] = useState<{ code: string; description: string | null; label: string; minOrderValue: number }[]>([]);
   const [locMsg, setLocMsg] = useState("");
   const [forOther, setForOther] = useState(false);
   const [contactName, setContactName] = useState("");
@@ -237,14 +238,25 @@ export default function CustomerApp() {
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const cartSubtotal = cartItems.reduce((s, i) => s + i.effectivePrice * i.qty, 0);
 
-  async function applyCoupon() {
-    if (!couponInput.trim()) return;
+  useEffect(() => {
+    if (screen !== "checkout" || !vendor) return;
+    let cancelled = false;
+    apiFetch<{ offers: { code: string; description: string | null; label: string; minOrderValue: number }[] }>(`/api/drycleaners/${vendor.id}/offers`, "customer")
+      .then((d) => { if (!cancelled) setShopOffers(d.offers); })
+      .catch(() => { if (!cancelled) setShopOffers([]); });
+    return () => { cancelled = true; };
+  }, [screen, vendor]);
+
+  async function applyCoupon(codeArg?: string) {
+    const codeToUse = (codeArg ?? couponInput).trim();
+    if (!codeToUse) return;
+    setCouponInput(codeToUse);
     setCouponMsg("");
     try {
       const data = await apiFetch<{ code: string; discountAmount: number; label: string }>(
         "/api/coupons/validate",
         "customer",
-        { method: "POST", body: JSON.stringify({ code: couponInput.trim(), subtotal: cartSubtotal }) }
+        { method: "POST", body: JSON.stringify({ code: codeToUse, subtotal: cartSubtotal, dryCleanerId: vendor?.id }) }
       );
       setCoupon(data);
     } catch (e) {
@@ -500,8 +512,23 @@ export default function CustomerApp() {
             <label className="ff-label">Offer code (optional)</label>
             <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
               <input className="ff-input" value={couponInput} onChange={(e) => { setCouponInput(e.target.value); setCoupon(null); }} placeholder="Enter code" />
-              <button className="ff-btn ff-btn-outline" onClick={applyCoupon}>Apply</button>
+              <button className="ff-btn ff-btn-outline" onClick={() => applyCoupon()}>Apply</button>
             </div>
+            {shopOffers.length > 0 && (
+              <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "4px 0 8px" }}>
+                {shopOffers.map((o) => (
+                  <button
+                    key={o.code}
+                    type="button"
+                    onClick={() => applyCoupon(o.code)}
+                    style={{ flex: "0 0 auto", textAlign: "left", border: "1.5px dashed #059669", background: coupon?.code === o.code ? "#d1fae5" : "#ecfdf5", color: "#065f46", borderRadius: 12, padding: "8px 12px", cursor: "pointer" }}
+                  >
+                    <strong style={{ display: "block", fontSize: 13 }}>{o.label} · {o.code}</strong>
+                    <span style={{ fontSize: 11 }}>{o.minOrderValue > 0 ? `On orders above Rs ${o.minOrderValue}` : "Tap to apply"}{o.description ? ` · ${o.description}` : ""}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {couponMsg && <p style={{ fontSize: 12, color: "#dc2626", marginBottom: 8 }}>{couponMsg}</p>}
             {coupon && <p style={{ fontSize: 12, color: "#059669", marginBottom: 8 }}>Offer applied. You save {inr(coupon.discountAmount)}.</p>}
             <div style={{ height: 8 }} />

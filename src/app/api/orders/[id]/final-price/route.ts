@@ -52,8 +52,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const customerTotal = customerPrice(dcAmount, Number(order.commissionRate));
     payableTotal = Math.max(0, Math.round((customerTotal - discount) * 100) / 100);
     breakdown = {
-      commissionAmount: Math.round((payableTotal - dcAmount) * 100) / 100,
-      dryCleanerNetAmount: dcAmount,
+      // A shop's own offer comes out of his amount; a Fresh Folds code comes out of the fee.
+      commissionAmount: Math.round((payableTotal - (dcAmount - (order.discountByDryCleaner ? discount : 0))) * 100) / 100,
+      dryCleanerNetAmount: Math.round((dcAmount - (order.discountByDryCleaner ? discount : 0)) * 100) / 100,
       customerBalanceDue: Math.round((payableTotal - Number(order.amountPaid)) * 100) / 100,
     };
   } else {

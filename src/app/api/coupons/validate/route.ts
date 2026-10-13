@@ -6,6 +6,7 @@ import { evaluateCoupon } from "@/lib/coupons";
 const bodySchema = z.object({
   code: z.string().min(1),
   subtotal: z.number().nonnegative(),
+  dryCleanerId: z.string().optional(),
 });
 
 /**
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Enter an offer code." }, { status: 400 });
 
-  const result = await evaluateCoupon(parsed.data.code, parsed.data.subtotal, session.userId);
+  const result = await evaluateCoupon(parsed.data.code, parsed.data.subtotal, session.userId, parsed.data.dryCleanerId);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({
     code: result.code,

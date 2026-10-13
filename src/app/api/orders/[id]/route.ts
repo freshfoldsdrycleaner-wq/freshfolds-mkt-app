@@ -53,6 +53,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       estimatedTotal: Number(order.estimatedTotal),
       couponCode: order.couponCode,
       discountAmount: Number(order.discountAmount),
+      discountByDryCleaner: order.discountByDryCleaner,
       finalTotal: order.finalTotal ? Number(order.finalTotal) : null,
       commissionRate: Number(order.commissionRate),
       commissionAmount: order.commissionAmount ? Number(order.commissionAmount) : null,
