@@ -57,7 +57,7 @@ export async function GET(req: Request) {
         amount: Number(p.amount),
         type: p.paymentType,
         status: p.status,
-        via: p.transactionId.startsWith("FFUPI-") ? "Fresh Folds UPI" : p.transactionId.startsWith("CASH-") ? "Cash / dry-cleaner" : "Other",
+        via: p.transactionId.startsWith("FFUPI-RZP-") ? "Razorpay (online)" : p.transactionId.startsWith("FFUPI-") ? "Fresh Folds UPI" : p.transactionId.startsWith("CASH-") ? "Cash / dry-cleaner" : "Other",
         at: p.createdAt,
       })),
     })),

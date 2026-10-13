@@ -8,6 +8,7 @@ import { RateOrder, ReviewsList } from "@/components/Reviews";
 import OrderPhotos from "@/components/OrderPhotos";
 import PushSetup from "@/components/PushSetup";
 import ClaimPaid from "@/components/ClaimPaid";
+import PayOnline from "@/components/PayOnline";
 import { FF_UPI_ID, upiLink } from "@/lib/upi";
 
 const inr = (n: number | null | undefined) =>
@@ -553,8 +554,9 @@ export default function CustomerApp() {
                 <p style={{ fontSize: 12, color: "#475569", marginBottom: 10 }}>
                   Pay to Fresh Folds now, or at pickup. Show the payment-success screen to the dry-cleaner. The rest is paid after your clothes are ready.
                 </p>
+                <PayOnline orderId={lastOrder.id} label={"Pay " + inr(Math.round(lastOrder.balanceDue * 0.2)) + " online"} />
                 <a
-                  className="ff-btn ff-btn-primary"
+                  className="ff-btn ff-btn-outline"
                   style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 8 }}
                   href={upiLink(Math.round(lastOrder.balanceDue * 0.2), "Advance " + lastOrder.orderNumber)}
                 >

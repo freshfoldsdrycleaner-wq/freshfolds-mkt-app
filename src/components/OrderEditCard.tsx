@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
 import { FF_UPI_ID, upiLink } from "@/lib/upi";
 import ClaimPaid from "@/components/ClaimPaid";
+import PayOnline from "@/components/PayOnline";
 
 type Props = {
   orderId: string;
@@ -232,8 +233,9 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
             Pay <b>Rs {Math.round(Number(info.estimatedTotal) * 0.2)}</b> to Fresh Folds before pickup, or at pickup.
             Show the success screen to the dry-cleaner.
           </p>
+          {Number(info.amountPaid || 0) <= 0 && <PayOnline orderId={orderId} onPaid={() => setVer((v) => v + 1)} />}
           <a
-            className="ff-btn ff-btn-primary"
+            className="ff-btn ff-btn-outline"
             style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 6 }}
             href={upiLink(Math.round(Number(info.estimatedTotal) * 0.2), "Fresh Folds advance")}
           >
