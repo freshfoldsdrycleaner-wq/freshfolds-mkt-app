@@ -23,7 +23,7 @@ export function SiteFooter() {
     <footer style={{ marginTop: 40, paddingTop: 16, borderTop: "1px solid #e2e8f0", fontSize: 13, color: "#64748b" }}>
       <p style={{ marginBottom: 8 }}>
         <a style={link} href="/contact">Contact us</a> · <a style={link} href="/terms">Terms and conditions</a> ·{" "}
-        <a style={link} href="/privacy">Privacy policy</a> · <a style={link} href="/refund-policy">Cancellation and refund policy</a>
+        <a style={link} href="/privacy">Privacy policy</a> · <a style={link} href="/refund-policy">Cancellation and refund policy</a> · <a style={link} href="/delete-account">Delete account</a>
       </p>
       <p>© Fresh Folds. Delhi, India.</p>
     </footer>

@@ -46,3 +46,36 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json({ user: { id: updated.id, name: updated.name, phone: updated.phone, email: updated.email, role: updated.role } });
 }
+
+/**
+ * DELETE /api/users/me — customer deletes their own account (required by app stores).
+ * Personal details are erased and the login can no longer be used. Past orders are
+ * kept without any personal details because dry-cleaners and Fresh Folds need them
+ * for accounting. Blocked while an order is still in progress.
+ */
+export async function DELETE(req: Request) {
+  let session;
+  try {
+    session = requireSession(req);
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 401 });
+  }
+  if (session.role !== "CUSTOMER") {
+    return NextResponse.json({ error: "Please contact Fresh Folds to close this account." }, { status: 403 });
+  }
+  const open = await prisma.order.count({
+    where: { customerId: session.userId, status: { notIn: ["DELIVERED", "CLOSED", "CANCELLED"] } },
+  });
+  if (open > 0) {
+    return NextResponse.json({ error: "You still have an order in progress. Please delete your account after it is delivered or cancelled." }, { status: 409 });
+  }
+  await prisma.$transaction([
+    prisma.pushSubscription.deleteMany({ where: { userId: session.userId } }),
+    prisma.notification.deleteMany({ where: { userId: session.userId } }),
+    prisma.user.update({
+      where: { id: session.userId },
+      data: { name: "Deleted user", email: null, phone: `deleted-${session.userId}` },
+    }),
+  ]);
+  return NextResponse.json({ ok: true });
+}

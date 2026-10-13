@@ -84,6 +84,8 @@ export default function CustomerApp() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [preferredPickupAt, setPreferredPickupAt] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState("");
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discountAmount: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState("");
@@ -247,6 +249,17 @@ export default function CustomerApp() {
     } catch (e) {
       setCoupon(null);
       if (!handleAuthError(e)) setCouponMsg(e instanceof ApiError ? e.message : "Could not check the code.");
+    }
+  }
+
+  async function deleteAccount() {
+    setDeleteMsg("");
+    try {
+      await apiFetch("/api/users/me", "customer", { method: "DELETE" });
+      clearToken("customer");
+      window.location.href = "/customer/login";
+    } catch (e) {
+      setDeleteMsg(e instanceof ApiError ? e.message : "Could not delete the account. Please try again.");
     }
   }
 
@@ -686,6 +699,20 @@ export default function CustomerApp() {
             <p style={{ color: "#64748b", margin: 0 }}>{profile.phone}</p>
             {profile.email && <p style={{ color: "#64748b", margin: 0 }}>{profile.email}</p>}
             <button className="ff-btn ff-btn-outline" style={{ marginTop: 20 }} onClick={logout}>Log out</button>
+            <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #dcebe9" }}>
+              {!confirmDelete ? (
+                <button className="ff-btn ff-btn-danger" onClick={() => setConfirmDelete(true)}>Delete my account</button>
+              ) : (
+                <div className="ff-card" style={{ padding: 12, borderColor: "#fecaca" }}>
+                  <p style={{ fontSize: 13, margin: "0 0 8px" }}>This erases your name, phone and email and you will not be able to log in again. This cannot be undone.</p>
+                  {deleteMsg && <p style={{ fontSize: 12, color: "#dc2626", margin: "0 0 8px" }}>{deleteMsg}</p>}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="ff-btn ff-btn-danger" style={{ flex: 1 }} onClick={deleteAccount}>Yes, delete</button>
+                    <button className="ff-btn ff-btn-outline" style={{ flex: 1 }} onClick={() => { setConfirmDelete(false); setDeleteMsg(""); }}>Keep account</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
