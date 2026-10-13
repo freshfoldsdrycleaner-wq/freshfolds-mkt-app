@@ -17,6 +17,16 @@ export function effectivePrice(price: number, discountPercent: number): number {
   return round2(price * (1 - discountPercent / 100));
 }
 
+/** App fee rate (percent) added on top of the dry-cleaner's own price. */
+export function appFeeRate(): number {
+  return Number(process.env.DEFAULT_COMMISSION_RATE ?? 10);
+}
+
+/** What the customer pays for something the dry-cleaner priced at `price`: price + app fee, whole rupees. */
+export function customerPrice(price: number, ratePercent: number = appFeeRate()): number {
+  return Math.round(price * (1 + ratePercent / 100));
+}
+
 export interface OrderItemInput {
   itemName: string;
   serviceName: string;

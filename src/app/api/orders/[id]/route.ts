@@ -60,6 +60,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       amountPaid: Number(order.amountPaid),
       advanceClaimedAt: order.advanceClaimedAt,
       acceptedAt: order.acceptedAt,
+      markupPricing: order.markupPricing,
       declineReason: order.declineReason,
       balanceDue: order.balanceDue ? Number(order.balanceDue) : null,
       items: order.items.map((i) => ({

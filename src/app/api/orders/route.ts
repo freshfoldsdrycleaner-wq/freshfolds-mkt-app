@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
-import { calculateEstimatedOrder, calculateCommissionBreakdown, generateOrderNumber, effectivePrice } from "@/lib/pricing";
+import { calculateEstimatedOrder, generateOrderNumber, effectivePrice, customerPrice } from "@/lib/pricing";
 import { getNotificationProvider } from "@/lib/providers/notification";
 import { evaluateCoupon } from "@/lib/coupons";
 
@@ -69,6 +69,8 @@ export async function POST(req: Request) {
   }
   const serviceById = new Map(services.map((s) => [s.id, s]));
 
+  // The dry-cleaner's own price is what he earns. The customer pays that plus the
+  // app fee on top, so every customer-facing price already includes the fee.
   const priced = calculateEstimatedOrder(
     items.map((i) => {
       const svc = serviceById.get(i.serviceId)!;
@@ -76,15 +78,20 @@ export async function POST(req: Request) {
         itemName: svc.itemName,
         serviceName: svc.serviceName,
         quantity: i.quantity,
-        unitPrice: effectivePrice(Number(svc.price), Number(svc.discountPercent)),
+        unitPrice: customerPrice(effectivePrice(Number(svc.price), Number(svc.discountPercent)), DEFAULT_COMMISSION_RATE),
       };
     }),
     DEFAULT_BOOKING_PERCENT
   );
+  const dryCleanerAmount = Math.round(
+    items.reduce((sum, i) => {
+      const svc = serviceById.get(i.serviceId)!;
+      return sum + effectivePrice(Number(svc.price), Number(svc.discountPercent)) * i.quantity;
+    }, 0) * 100
+  ) / 100;
 
-  // Optional admin-created offer code: the discount is computed here, on the
-  // server, from the real subtotal. The order total (and commission) are
-  // calculated on the discounted amount.
+  // Optional admin-created offer code: computed here on the server from the
+  // customer subtotal. Offers are paid for by Fresh Folds, not the dry-cleaner.
   let appliedCode: string | null = null;
   let discountAmount = 0;
   if (couponCode && couponCode.trim()) {
@@ -95,13 +102,11 @@ export async function POST(req: Request) {
   }
   const orderTotal = Math.round((priced.estimatedTotal - discountAmount) * 100) / 100;
 
-  // Commission rate is locked in at booking time (section 61).
-  // No money has been collected yet, so the amount already paid is 0.
-  const commission = calculateCommissionBreakdown(
-    orderTotal,
-    DEFAULT_COMMISSION_RATE,
-    0
-  );
+  // Fresh Folds' share is whatever the customer pays above the dry-cleaner's own amount.
+  const commission = {
+    commissionAmount: Math.round((orderTotal - dryCleanerAmount) * 100) / 100,
+    dryCleanerNetAmount: dryCleanerAmount,
+  };
 
   const orderNumber = generateOrderNumber();
 
@@ -120,6 +125,7 @@ export async function POST(req: Request) {
         couponCode: appliedCode,
         discountAmount,
         commissionRate: DEFAULT_COMMISSION_RATE,
+        markupPricing: true,
         commissionAmount: commission.commissionAmount,
         dryCleanerNetAmount: commission.dryCleanerNetAmount,
         amountPaid: 0,

@@ -3,7 +3,7 @@ import { notifyAdmins } from "@/lib/providers/notification";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { haversineDistanceKm, estimateMinutesFromKm } from "@/lib/geo";
-import { effectivePrice } from "@/lib/pricing";
+import { effectivePrice, customerPrice } from "@/lib/pricing";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
 
 /**
@@ -51,7 +51,7 @@ export async function GET(req: Request) {
           ? dc.reviews.reduce((s, r) => s + r.rating, 0) / dc.reviews.length
           : null;
       const startingPrice = dc.services.length
-        ? Math.min(...dc.services.map((s) => effectivePrice(Number(s.price), Number(s.discountPercent))))
+        ? Math.min(...dc.services.map((s) => customerPrice(effectivePrice(Number(s.price), Number(s.discountPercent)))))
         : null;
 
       return {

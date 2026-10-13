@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { customerPrice } from "@/lib/pricing";
 
 /**
  * GET /api/drycleaners/:id — full profile + live price catalog (section 6).
@@ -33,9 +34,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     operatingHours: dryCleaner.operatingHours,
     rating: avgRating,
     services: dryCleaner.services.map((s) => {
-      const price = Number(s.price);
+      // Customers see the dry-cleaner's price with the app fee already added.
+      const price = customerPrice(Number(s.price));
       const discountPercent = Number(s.discountPercent);
-      const effectivePrice = Math.round(price * (1 - discountPercent / 100) * 100) / 100;
+      const effectivePrice = customerPrice(Math.round(Number(s.price) * (1 - discountPercent / 100) * 100) / 100);
       return {
         id: s.id,
         category: s.category,

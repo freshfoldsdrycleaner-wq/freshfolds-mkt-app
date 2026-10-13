@@ -43,7 +43,7 @@ interface OrderRow {
 }
 interface OrderDetail extends OrderRow {
   pickupAddress: string; deliveryAddress: string; preferredPickupAt: string | null;
-  couponCode?: string | null; discountAmount?: number; acceptedAt?: string | null;
+  couponCode?: string | null; discountAmount?: number; acceptedAt?: string | null; markupPricing?: boolean;
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
 }
 
@@ -238,7 +238,7 @@ export default function DryCleanDashboard() {
     try {
       const data = await apiFetch<{ order: OrderDetail }>(`/api/orders/${id}`, "dryclean");
       setOpenOrder(data.order);
-      setFinalTotalInput(String(data.order.finalTotal ?? data.order.estimatedTotal));
+      setFinalTotalInput(String(data.order.markupPricing ? (data.order.dryCleanerNetAmount ?? 0) : (data.order.finalTotal ?? data.order.estimatedTotal)));
     } catch (e) {
       if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "Failed to load order.");
     }
@@ -423,6 +423,9 @@ export default function DryCleanDashboard() {
                 <p style={{ padding: 16, color: "#94a3b8" }}>Loading…</p>
               ) : (
                 <>
+                  <p style={{ fontSize: 12, color: "#64748b", background: "#f0fdf4", padding: 10, margin: 12, borderRadius: 8 }}>
+                    Enter your own price. Fresh Folds adds a 10% fee on top automatically, and customers only see the final amount. For example, if you enter 100, the customer sees 110 and you receive 100.
+                  </p>
                   <table className="ff-table">
                     <thead><tr><th>Item</th><th>Price</th><th>Status</th><th></th></tr></thead>
                     <tbody>
@@ -511,14 +514,38 @@ export default function DryCleanDashboard() {
               <h2 style={{ margin: "0 0 4px" }}>{openOrder.orderNumber}</h2>
               <p style={{ color: "#94a3b8", marginBottom: 16 }}><Badge tone={statusTone(openOrder.status)}>{openOrder.status === "ORDER_PLACED" ? (openOrder.acceptedAt ? "Accepted · pickup pending" : "Waiting for you to accept") : openOrder.status === "PAYMENT_PENDING" ? "Ready · pay on delivery" : (STAGE_LABELS[openOrder.status] || openOrder.status)}</Badge></p>
 
+              {openOrder.markupPricing && (
+                <div className="ff-card" style={{ padding: 12, marginBottom: 16, background: "#f0fdf4" }}>
+                  <p className="ff-label">Payment summary</p>
+                  {(() => {
+                    const mine = Number(openOrder.dryCleanerNetAmount ?? 0);
+                    const total = Number(openOrder.finalTotal ?? openOrder.estimatedTotal);
+                    const adv = Number(openOrder.amountPaid || 0);
+                    const row = (l: string, v: string, bold?: boolean, color?: string) => (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: bold ? 15 : 13, fontWeight: bold ? 700 : 400, color: color || "#0f172a", marginBottom: 4 }}><span>{l}</span><span>{v}</span></div>
+                    );
+                    return (
+                      <>
+                        {row("Your price for the work", inr(mine))}
+                        {row("Fresh Folds fee (added on top)", "+ " + inr(openOrder.commissionAmount ?? 0))}
+                        {row("Customer pays in total", inr(total), true)}
+                        {row("Advance already received", "− " + inr(adv), false, "#059669")}
+                        {row("Balance to collect from customer", inr(openOrder.balanceDue ?? total - adv), true, "#b45309")}
+                        <p style={{ fontSize: 11, color: "#64748b", margin: "6px 0 0" }}>The advance went to Fresh Folds. You keep what you collect, and Fresh Folds settles the rest with you.</p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
               <div style={{ marginBottom: 16 }}>
                 <p className="ff-label">Items</p>
                 {openOrder.items.map((it, i) => (
-                  <div key={i} style={{ fontSize: 13, marginBottom: 2 }}>{it.itemName} ({it.serviceName}) × {it.quantity} — {inr(it.estimatedPrice)}</div>
+                  <div key={i} style={{ fontSize: 13, marginBottom: 2 }}>{it.itemName} ({it.serviceName}) × {it.quantity}{openOrder.markupPricing ? "" : " — " + inr(it.estimatedPrice)}</div>
                 ))}
                 {openOrder.couponCode && Number(openOrder.discountAmount || 0) > 0 && (
                   <div style={{ fontSize: 13, marginTop: 4, color: "#059669" }}>
-                    Offer {openOrder.couponCode}: customer gets {inr(openOrder.discountAmount)} off (already included in the totals below).
+                    Offer {openOrder.couponCode}: customer gets {inr(openOrder.discountAmount)} off. {openOrder.markupPricing ? "Fresh Folds pays for this offer, your amount does not change." : "Already included in the totals below."}
                   </div>
                 )}
               </div>
@@ -605,8 +632,11 @@ export default function DryCleanDashboard() {
               )}
 
               <div style={{ marginBottom: 16 }}>
-                <p className="ff-label">Post-inspection price correction</p>
-                {openOrder.couponCode && Number(openOrder.discountAmount || 0) > 0 && (
+                <p className="ff-label">{openOrder.markupPricing ? "Change your price after inspection" : "Post-inspection price correction"}</p>
+                {openOrder.markupPricing && (
+                  <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>Enter only YOUR price for the work. The Fresh Folds fee is added automatically and the customer is told the new total.</p>
+                )}
+                {!openOrder.markupPricing && openOrder.couponCode && Number(openOrder.discountAmount || 0) > 0 && (
                   <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>Enter the full price of the work. The offer discount is subtracted automatically.</p>
                 )}
                 <div style={{ display: "flex", gap: 8 }}>
@@ -615,7 +645,7 @@ export default function DryCleanDashboard() {
                 </div>
               </div>
 
-              <div className="ff-card" style={{ padding: 12, background: "#f8fafc" }}>
+              {!openOrder.markupPricing && (<div className="ff-card" style={{ padding: 12, background: "#f8fafc" }}>
                 <p className="ff-label">Your economics</p>
                 <div style={{ fontSize: 13, display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span>Gross order value</span><span>{inr(openOrder.finalTotal ?? openOrder.estimatedTotal)}</span>
@@ -626,7 +656,7 @@ export default function DryCleanDashboard() {
                 <div style={{ fontSize: 14, display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#059669" }}>
                   <span>Your net payout</span><span>{inr(openOrder.dryCleanerNetAmount)}</span>
                 </div>
-              </div>
+              </div>)}
             </div>
           )}
         </>

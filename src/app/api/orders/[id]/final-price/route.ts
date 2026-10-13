@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
-import { recalculateAfterFinalPrice } from "@/lib/pricing";
+import { recalculateAfterFinalPrice, customerPrice } from "@/lib/pricing";
 import { getNotificationProvider } from "@/lib/providers/notification";
 
 const bodySchema = z.object({ finalTotal: z.number().positive() });
@@ -42,16 +42,25 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  // The dry-cleaner enters the real value of the work (before any offer).
-  // Any offer code discount locked in at booking is subtracted here.
   const discount = Number(order.discountAmount ?? 0);
-  const payableTotal = Math.max(0, Math.round((parsed.data.finalTotal - discount) * 100) / 100);
-
-  const breakdown = recalculateAfterFinalPrice(
-    payableTotal,
-    Number(order.commissionRate),
-    Number(order.amountPaid)
-  );
+  let payableTotal: number;
+  let breakdown: { commissionAmount: number; dryCleanerNetAmount: number; customerBalanceDue: number };
+  if (order.markupPricing) {
+    // The dry-cleaner enters HIS OWN price for the work. The app fee is added on
+    // top automatically; any offer is paid by Fresh Folds, not by him.
+    const dcAmount = Math.round(parsed.data.finalTotal * 100) / 100;
+    const customerTotal = customerPrice(dcAmount, Number(order.commissionRate));
+    payableTotal = Math.max(0, Math.round((customerTotal - discount) * 100) / 100);
+    breakdown = {
+      commissionAmount: Math.round((payableTotal - dcAmount) * 100) / 100,
+      dryCleanerNetAmount: dcAmount,
+      customerBalanceDue: Math.round((payableTotal - Number(order.amountPaid)) * 100) / 100,
+    };
+  } else {
+    // Older orders: the entered value is the full price and commission comes out of it.
+    payableTotal = Math.max(0, Math.round((parsed.data.finalTotal - discount) * 100) / 100);
+    breakdown = recalculateAfterFinalPrice(payableTotal, Number(order.commissionRate), Number(order.amountPaid));
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const o = await tx.order.update({
@@ -80,7 +89,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     userId: order.customerId,
     orderId: order.id,
     title: "Order total updated",
-    message: `${order.orderNumber}: final total is now ${payableTotal}. Remaining balance: ${breakdown.customerBalanceDue}.`,
+    message: `${order.orderNumber}: your total is now Rs ${payableTotal}. Balance to pay: Rs ${breakdown.customerBalanceDue}.`,
   });
 
   return NextResponse.json({
