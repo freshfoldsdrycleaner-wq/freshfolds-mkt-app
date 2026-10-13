@@ -47,6 +47,14 @@ interface OrderDetail extends OrderRow {
   items: { itemName: string; serviceName: string; quantity: number; estimatedPrice: number }[];
 }
 
+/** MRP and selling price -> discount percent (kept to 2 decimals). Blank selling price means no discount. */
+function discountFrom(mrp: number, selling: string): number | null {
+  if (selling.trim() === "") return 0;
+  const sell = Number(selling);
+  if (!Number.isFinite(sell) || sell <= 0 || !Number.isFinite(mrp) || mrp <= 0 || sell > mrp) return null;
+  return Math.round((1 - sell / mrp) * 10000) / 100;
+}
+
 function Badge({ tone, children }: { tone: "green" | "amber" | "red" | "slate"; children: React.ReactNode }) {
   return <span className={`ff-badge ff-badge-${tone}`}>{children}</span>;
 }
@@ -85,11 +93,11 @@ export default function DryCleanDashboard() {
   const [newItem, setNewItem] = useState("");
   const [newServiceName, setNewServiceName] = useState("Dry Clean");
   const [newPrice, setNewPrice] = useState("");
-  const [newDiscount, setNewDiscount] = useState("0");
+  const [newSelling, setNewSelling] = useState("");
   const [newHasPhoto, setNewHasPhoto] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
-  const [editDiscount, setEditDiscount] = useState("");
+  const [editSelling, setEditSelling] = useState("");
 
   // order detail state
   const [assignPhone, setAssignPhone] = useState("");
@@ -185,14 +193,20 @@ export default function DryCleanDashboard() {
   function startEdit(s: Service) {
     setEditingId(s.id);
     setEditPrice(String(s.price));
-    setEditDiscount(String(s.discountPercent));
+    setEditSelling(String(Math.round(s.price * (1 - s.discountPercent / 100) * 100) / 100));
   }
   async function submitEdit(s: Service) {
     if (!dc) return;
+    const d = discountFrom(Number(editPrice), editSelling);
+    if (d === null) {
+      setError("Selling price must be more than 0 and not more than the MRP.");
+      return;
+    }
+    setError("");
     try {
       await apiFetch(`/api/drycleaners/${dc.id}/services/${s.id}`, "dryclean", {
         method: "PATCH",
-        body: JSON.stringify({ action: "edit", changes: { price: Number(editPrice), discountPercent: Number(editDiscount) } }),
+        body: JSON.stringify({ action: "edit", changes: { price: Number(editPrice), discountPercent: d } }),
       });
       setEditingId(null);
       loadServices();
@@ -214,6 +228,12 @@ export default function DryCleanDashboard() {
   }
   async function submitNewService() {
     if (!dc || !newCategory.trim() || !newItem.trim() || !newPrice) return;
+    const d = discountFrom(Number(newPrice), newSelling);
+    if (d === null) {
+      setError("Selling price must be more than 0 and not more than the MRP.");
+      return;
+    }
+    setError("");
     try {
       await apiFetch(`/api/drycleaners/${dc.id}/services`, "dryclean", {
         method: "POST",
@@ -222,11 +242,11 @@ export default function DryCleanDashboard() {
           itemName: newItem.trim(),
           serviceName: newServiceName.trim(),
           price: Number(newPrice),
-          discountPercent: Number(newDiscount) || 0,
+          discountPercent: d,
           hasPhoto: newHasPhoto,
         }),
       });
-      setNewCategory(""); setNewItem(""); setNewPrice(""); setNewDiscount("0"); setNewHasPhoto(false); setShowAddForm(false);
+      setNewCategory(""); setNewItem(""); setNewPrice(""); setNewSelling(""); setNewHasPhoto(false); setShowAddForm(false);
       loadServices();
     } catch (e) {
       if (!handleAuthError(e)) setError(e instanceof ApiError ? e.message : "Failed to add service.");
@@ -424,7 +444,7 @@ export default function DryCleanDashboard() {
               ) : (
                 <>
                   <p style={{ fontSize: 12, color: "#64748b", background: "#f0fdf4", padding: 10, margin: 12, borderRadius: 8 }}>
-                    Enter your own price. Fresh Folds adds a 10% fee on top automatically, and customers only see the final amount. For example, if you enter 100, the customer sees 110 and you receive 100.
+                    Enter your MRP and your selling price. Customers see the MRP struck out with your selling price and the discount. Fresh Folds adds a 10% fee on top automatically, so if your selling price is 70 the customer pays 77 and you receive 70.
                   </p>
                   <table className="ff-table">
                     <thead><tr><th>Item</th><th>Price</th><th>Status</th><th></th></tr></thead>
@@ -435,11 +455,19 @@ export default function DryCleanDashboard() {
                           <td>
                             {editingId === s.id ? (
                               <div style={{ display: "flex", gap: 6 }}>
-                                <input className="ff-input" style={{ width: 80 }} value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
-                                <input className="ff-input" style={{ width: 70 }} value={editDiscount} onChange={(e) => setEditDiscount(e.target.value)} placeholder="%" />
+                                <input className="ff-input" style={{ width: 80 }} value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="MRP ₹" />
+                                <input className="ff-input" style={{ width: 90 }} value={editSelling} onChange={(e) => setEditSelling(e.target.value)} placeholder="Selling ₹" />
                               </div>
                             ) : (
-                              <>{inr(s.price)}{s.discountPercent > 0 && <span style={{ color: "#059669" }}> ({s.discountPercent}% off)</span>}</>
+                              <>
+                                {s.discountPercent > 0 ? (
+                                  <>
+                                    <span style={{ textDecoration: "line-through", color: "#94a3b8" }}>{inr(s.price)}</span>{" "}
+                                    <b>{inr(Math.round(s.price * (1 - s.discountPercent / 100) * 100) / 100)}</b>
+                                    <span style={{ color: "#059669" }}> ({s.discountPercent}% off)</span>
+                                  </>
+                                ) : inr(s.price)}
+                              </>
                             )}
                           </td>
                           <td><Badge tone={statusTone(s.status)}>{s.status === "ACTIVE" ? "Live" : s.status.replace("PENDING_", "Pending ")}</Badge></td>
@@ -469,8 +497,20 @@ export default function DryCleanDashboard() {
                         <input className="ff-input" placeholder="Category" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
                         <input className="ff-input" placeholder="Item name" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
                         <input className="ff-input" placeholder="Service (e.g. Dry Clean)" value={newServiceName} onChange={(e) => setNewServiceName(e.target.value)} />
-                        <input className="ff-input" placeholder="Price ₹" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} />
-                        <input className="ff-input" placeholder="Discount %" value={newDiscount} onChange={(e) => setNewDiscount(e.target.value)} />
+                        <input className="ff-input" placeholder="MRP ₹ (full price)" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} />
+                        <input className="ff-input" placeholder="Your selling price ₹ (leave blank if no discount)" value={newSelling} onChange={(e) => setNewSelling(e.target.value)} />
+                        {(() => {
+                          const mrp = Number(newPrice);
+                          const d = newPrice ? discountFrom(mrp, newSelling) : 0;
+                          if (!newPrice) return null;
+                          if (d === null) return <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>Selling price must be more than 0 and not more than the MRP.</p>;
+                          const sell = newSelling.trim() === "" ? mrp : Number(newSelling);
+                          return (
+                            <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
+                              Customers will see <span style={{ textDecoration: "line-through" }}>₹{Math.round(mrp * 1.1)}</span> <b>₹{Math.round(sell * 1.1)}</b>{d > 0 ? ` (${d}% off)` : ""}. You receive ₹{sell}.
+                            </p>
+                          );
+                        })()}
                         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
                           <input type="checkbox" checked={newHasPhoto} onChange={(e) => setNewHasPhoto(e.target.checked)} /> Has photo
                         </label>

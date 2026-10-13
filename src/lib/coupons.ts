@@ -4,6 +4,9 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+/** Offers are paid for by Fresh Folds out of its app fee, so they can never be more than this share of the order. */
+export const MAX_OFFER_PERCENT = 5;
+
 export function normalizeCode(code: string): string {
   return code.trim().toUpperCase();
 }
@@ -53,11 +56,14 @@ export async function evaluateCoupon(
       ? (subtotal * Number(coupon.discountValue)) / 100
       : Number(coupon.discountValue);
   if (coupon.maxDiscount != null) discount = Math.min(discount, Number(coupon.maxDiscount));
-  discount = round2(Math.min(discount, subtotal));
+  const cap = round2((subtotal * MAX_OFFER_PERCENT) / 100);
+  const capped = discount > cap;
+  discount = round2(Math.min(discount, cap, subtotal));
   if (discount <= 0) return { ok: false, error: "This offer does not apply to your order." };
 
-  const label =
-    coupon.discountType === "PERCENT"
+  const label = capped
+    ? `${MAX_OFFER_PERCENT}% off (maximum offer)`
+    : coupon.discountType === "PERCENT"
       ? `${Number(coupon.discountValue)}% off`
       : `Rs ${Number(coupon.discountValue)} off`;
   return { ok: true, code, discountAmount: discount, label };
