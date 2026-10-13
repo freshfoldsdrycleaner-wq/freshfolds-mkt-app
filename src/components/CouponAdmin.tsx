@@ -105,7 +105,6 @@ export default function CouponAdmin() {
     <section>
       <div className="ff-card" style={{ padding: 16, marginBottom: 16 }}>
         <p className="ff-label">Create offer code</p>
-        <p style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>Offers are paid from the Fresh Folds fee, so they are limited to 5% off. A flat amount is also capped at 5% of the order.</p>
         <label className="ff-label">Code (letters/numbers, e.g. WELCOME50)</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           <input className="ff-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />

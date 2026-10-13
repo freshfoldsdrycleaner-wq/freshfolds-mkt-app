@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
-import { normalizeCode, MAX_OFFER_PERCENT } from "@/lib/coupons";
+import { normalizeCode } from "@/lib/coupons";
 
 function guard(req: Request) {
   const session = requireSession(req);
@@ -28,8 +28,8 @@ const createSchema = z
     usageLimit: z.number().int().positive().optional(),
     perCustomerLimit: z.number().int().positive().default(1),
   })
-  .refine((v) => v.discountType !== "PERCENT" || v.discountValue <= MAX_OFFER_PERCENT, {
-    message: `Offers can be at most ${MAX_OFFER_PERCENT}% off`,
+  .refine((v) => v.discountType !== "PERCENT" || v.discountValue <= 100, {
+    message: "Percent cannot be more than 100",
   });
 
 /** GET /api/admin/coupons: all offer codes with how many times each was used. */
