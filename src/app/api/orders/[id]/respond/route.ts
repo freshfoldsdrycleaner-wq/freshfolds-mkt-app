@@ -5,6 +5,7 @@ import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
 import { requireSession } from "@/lib/auth";
 import { assertTransition, IllegalOrderTransitionError } from "@/lib/orderStateMachine";
 import { getNotificationProvider, notifyAdmins } from "@/lib/providers/notification";
+import { refundRazorpayAdvance } from "@/lib/razorpay";
 
 const bodySchema = z.object({
   action: z.enum(["ACCEPT", "DECLINE"]),
@@ -63,6 +64,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       where: { id: order.id },
       data: { status: next, declineReason: parsed.data.reason || null },
     });
+    let refunded = 0;
+    let failed = 0;
+    try {
+      ({ refunded, failed } = await refundRazorpayAdvance(order.id));
+    } catch {
+      failed = paid;
+    }
+    const manual = paid - refunded > 0 || order.advanceClaimedAt ? paid - refunded : 0;
     await notifier.send({
       userId: order.customerId,
       orderId: order.id,
@@ -71,13 +80,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         `${order.orderNumber}: ${order.dryCleaner.businessName} could not take this order` +
         (parsed.data.reason ? ` (${parsed.data.reason})` : "") +
         "." +
-        (paid > 0 ? ` Your advance of Rs ${paid} will be refunded.` : " Please try another dry-cleaner."),
+        (refunded > 0
+          ? ` Your advance of Rs ${refunded} has been refunded to your original payment method. It reaches your account in 5-7 working days.`
+          : paid > 0
+          ? ` Your advance of Rs ${paid} will be refunded.`
+          : " Please try another dry-cleaner."),
     });
-    if (paid > 0 || order.advanceClaimedAt) {
+    if (manual > 0 || failed > 0 || order.advanceClaimedAt) {
       await notifyAdmins({
         orderId: order.id,
         title: "Refund needed",
-        message: `${order.orderNumber} was declined. Advance of Rs ${paid} may need to be refunded.`,
+        message: `${order.orderNumber} was declined. Rs ${manual || failed || paid} advance must be refunded manually.`,
       });
     }
     return NextResponse.json({ ok: true, accepted: false });

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { assertTransition, IllegalOrderTransitionError } from "@/lib/orderStateMachine";
-import { getNotificationProvider } from "@/lib/providers/notification";
+import { getNotificationProvider, notifyAdmins } from "@/lib/providers/notification";
+import { refundRazorpayAdvance } from "@/lib/razorpay";
 
 /**
  * POST /api/orders/:id/cancel
@@ -50,7 +51,33 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       });
     });
 
+    const paid = Number(order.amountPaid);
+    let refunded = 0;
+    let failed = 0;
+    if (paid > 0) {
+      try {
+        ({ refunded, failed } = await refundRazorpayAdvance(order.id));
+      } catch {
+        failed = paid;
+      }
+    }
+    const manualRefund = Math.max(0, paid - refunded);
     const notifier = getNotificationProvider();
+    if (refunded > 0) {
+      await notifier.send({
+        userId: order.customerId,
+        orderId: order.id,
+        title: "Refund started",
+        message: `${order.orderNumber}: Rs ${refunded} has been refunded to your original payment method. It reaches your account in 5-7 working days.`,
+      });
+    }
+    if (manualRefund > 0 || failed > 0) {
+      await notifyAdmins({
+        orderId: order.id,
+        title: "Refund needed",
+        message: `${order.orderNumber} was cancelled. Rs ${manualRefund || failed} advance must be refunded manually.`,
+      });
+    }
     if (isCustomer) {
       await notifier.send({
         userId: order.dryCleaner.ownerId,
@@ -79,7 +106,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({
       order: { id: order.id, status: nextStatus },
-      refundDue: Number(order.amountPaid),
+      refundDue: manualRefund,
+      refunded,
     });
   } catch (e) {
     if (e instanceof IllegalOrderTransitionError) {
