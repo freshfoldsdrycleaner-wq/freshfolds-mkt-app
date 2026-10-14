@@ -6,6 +6,7 @@ import { apiFetch, ApiError } from "@/lib/apiClient";
 interface Row {
   dryCleanerId: string;
   businessName: string;
+  razorpayAccountId: string | null;
   advancesCollected: number;
   commission: number;
   alreadyPaid: number;
@@ -73,6 +74,22 @@ export default function PayoutAdmin() {
     load();
     loadClaims();
   }, [load, loadClaims]);
+
+  const [accts, setAccts] = useState<Record<string, string>>({});
+  async function saveAccount(r: Row) {
+    const v = (accts[r.dryCleanerId] ?? r.razorpayAccountId ?? "").trim();
+    setMsg("");
+    try {
+      await apiFetch("/api/admin/payouts", "admin", {
+        method: "PATCH",
+        body: JSON.stringify({ dryCleanerId: r.dryCleanerId, razorpayAccountId: v === "" ? null : v }),
+      });
+      setMsg(v === "" ? "Automatic split turned off for " + r.businessName + "." : "Saved. New advances for " + r.businessName + " will be split automatically.");
+      load();
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : "Could not save.");
+    }
+  }
 
   async function pay(r: Row) {
     const amount = Number(amounts[r.dryCleanerId] ?? r.owed);
@@ -163,6 +180,16 @@ export default function PayoutAdmin() {
                 <button className="ff-btn ff-btn-primary" onClick={() => pay(r)}>Mark paid</button>
               </div>
             )}
+            <label className="ff-label" style={{ marginTop: 8 }}>Razorpay account for automatic split (acc_…)</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+              <input
+                className="ff-input"
+                placeholder="acc_XXXXXXXXXXXXXX (empty = manual)"
+                value={accts[r.dryCleanerId] ?? r.razorpayAccountId ?? ""}
+                onChange={(e) => setAccts((a) => ({ ...a, [r.dryCleanerId]: e.target.value }))}
+              />
+              <button className="ff-btn ff-btn-outline" onClick={() => saveAccount(r)}>Save</button>
+            </div>
             {r.history.length > 0 && (
               <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
                 Recent payouts:{" "}

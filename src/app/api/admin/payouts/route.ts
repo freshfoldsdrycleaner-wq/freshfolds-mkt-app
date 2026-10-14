@@ -37,7 +37,7 @@ export async function GET(req: Request) {
     include: { order: { select: { id: true, dryCleanerId: true, commissionAmount: true } } },
   });
   const payouts = await prisma.vendorPayout.findMany({ orderBy: { createdAt: "desc" } });
-  const dcs = await prisma.dryCleaner.findMany({ select: { id: true, businessName: true } });
+  const dcs = await prisma.dryCleaner.findMany({ select: { id: true, businessName: true, razorpayAccountId: true } });
 
   const rows = dcs.map((dc) => {
     const mine = payments.filter((p) => p.order.dryCleanerId === dc.id);
@@ -55,6 +55,7 @@ export async function GET(req: Request) {
     return {
       dryCleanerId: dc.id,
       businessName: dc.businessName,
+      razorpayAccountId: dc.razorpayAccountId,
       advancesCollected: round(advances),
       commission: round(commission),
       alreadyPaid: round(paid),
@@ -90,4 +91,22 @@ export async function POST(req: Request) {
     data: { dryCleanerId: dc.id, amount: parsed.data.amount, note: parsed.data.note || null },
   });
   return NextResponse.json({ payout: { id: payout.id, amount: Number(payout.amount) } }, { status: 201 });
+}
+
+const accountSchema = z.object({
+  dryCleanerId: z.string(),
+  razorpayAccountId: z.string().trim().regex(/^acc_[A-Za-z0-9]{8,30}$/, "It should look like acc_XXXXXXXXXXXXXX").nullable(),
+});
+
+/** PATCH /api/admin/payouts: link (or unlink) a dry-cleaner's Razorpay Route account for automatic advance splits. */
+export async function PATCH(req: Request) {
+  try {
+    guard(req);
+  } catch (e) {
+    return authError(e);
+  }
+  const parsed = accountSchema.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid account id." }, { status: 400 });
+  await prisma.dryCleaner.update({ where: { id: parsed.data.dryCleanerId }, data: { razorpayAccountId: parsed.data.razorpayAccountId } });
+  return NextResponse.json({ ok: true });
 }

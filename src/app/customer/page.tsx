@@ -8,6 +8,7 @@ import { RateOrder, ReviewsList } from "@/components/Reviews";
 import OrderPhotos from "@/components/OrderPhotos";
 import PushSetup from "@/components/PushSetup";
 import ClaimPaid from "@/components/ClaimPaid";
+import { useOnlinePay } from "@/lib/useOnlinePay";
 import PayOnline from "@/components/PayOnline";
 import { FF_UPI_ID, upiLink } from "@/lib/upi";
 
@@ -91,6 +92,7 @@ export default function CustomerApp() {
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discountAmount: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState("");
+  const onlinePay = useOnlinePay();
   const [shopOffers, setShopOffers] = useState<{ code: string; description: string | null; label: string; minOrderValue: number }[]>([]);
   const [locMsg, setLocMsg] = useState("");
   const [forOther, setForOther] = useState(false);
@@ -586,9 +588,11 @@ export default function CustomerApp() {
               <div className="ff-card" style={{ padding: 14, textAlign: "left", marginBottom: 16, background: "#eff6ff" }}>
                 <p style={{ fontWeight: 700, marginBottom: 4 }}>Pay your 20% advance: {inr(Math.round(lastOrder.balanceDue * 0.2))}</p>
                 <p style={{ fontSize: 12, color: "#475569", marginBottom: 10 }}>
-                  Pay to Fresh Folds now, or at pickup. Show the payment-success screen to the dry-cleaner. The rest is paid after your clothes are ready.
+                  Pay to Fresh Folds now, or at pickup. Your payment is recorded automatically. The rest is paid after your clothes are ready.
                 </p>
                 <PayOnline orderId={lastOrder.id} label={"Pay " + inr(Math.round(lastOrder.balanceDue * 0.2)) + " online"} />
+                {onlinePay === false && (
+                  <>
                 <a
                   className="ff-btn ff-btn-outline"
                   style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 8 }}
@@ -607,6 +611,8 @@ export default function CustomerApp() {
                   Add the order number {lastOrder.orderNumber} in the payment note if your app allows.
                 </p>
                 <ClaimPaid orderId={lastOrder.id} />
+                  </>
+                )}
               </div>
             )}
             <div className="ff-card" style={{ padding: 14, textAlign: "left", marginBottom: 16 }}>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
 import { FF_UPI_ID, upiLink } from "@/lib/upi";
 import ClaimPaid from "@/components/ClaimPaid";
+import { useOnlinePay } from "@/lib/useOnlinePay";
 import PayOnline from "@/components/PayOnline";
 
 type Props = {
@@ -42,6 +43,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
   const [ver, setVer] = useState(0);
   const [declining, setDeclining] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
+  const onlinePay = useOnlinePay();
 
   useEffect(() => {
     let alive = true;
@@ -215,6 +217,8 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
     }
   }
 
+  const advPaid = !!info && Number(info.amountPaid || 0) > 0 && Math.round(Number(info.estimatedTotal) * 0.2) - Number(info.amountPaid || 0) <= 0;
+
   const digits = info?.customer?.phone ? info.customer.phone.replace(/\D/g, "") : "";
   const waNumber = digits.length === 10 ? "91" + digits : digits;
 
@@ -231,9 +235,11 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
           <p className="ff-label">Pay your 20% advance</p>
           <p style={{ fontSize: 13, marginBottom: 6 }}>
             Pay <b>Rs {Math.round(Number(info.estimatedTotal) * 0.2)}</b> to Fresh Folds before pickup, or at pickup.
-            Show the success screen to the dry-cleaner.
+            It is recorded automatically once you pay.
           </p>
           {Number(info.amountPaid || 0) <= 0 && <PayOnline orderId={orderId} onPaid={() => setVer((v) => v + 1)} />}
+          {onlinePay === false && (
+            <>
           <a
             className="ff-btn ff-btn-outline"
             style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 6 }}
@@ -242,7 +248,11 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
             Pay with UPI app
           </a>
           <p style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>UPI ID: {FF_UPI_ID}</p>
-          <ClaimPaid orderId={orderId} paid={Number(info.amountPaid || 0) > 0} claimed={!!info.advanceClaimedAt} />
+            </>
+          )}
+          {(onlinePay === false || Number(info.amountPaid || 0) > 0) && (
+            <ClaimPaid orderId={orderId} paid={Number(info.amountPaid || 0) > 0} claimed={!!info.advanceClaimedAt} />
+          )}
         </div>
       )}
 
@@ -422,6 +432,12 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
               ))}
             </div>
           )}
+          {advPaid ? (
+            <p style={{ fontSize: 13, color: "#059669", fontWeight: 600, background: "#ecfdf5", padding: 10, borderRadius: 8, marginBottom: 8 }}>
+              ✓ Advance of Rs {Math.round(Number(info?.amountPaid || 0))} paid online. Nothing to collect now.
+            </p>
+          ) : (
+            <>
           <label className="ff-label">Advance was paid to</label>
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <button
@@ -462,13 +478,15 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
           <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
             Pre-filled with 20% of the estimate, minus anything already paid to Fresh Folds. Change it if you collected a different amount.
           </p>
+            </>
+          )}
           <button
             className="ff-btn ff-btn-primary"
             style={{ width: "100%", marginTop: 8 }}
             disabled={busy}
             onClick={selfPickup}
           >
-            Picked up · advance received · start cleaning
+            {advPaid ? "Picked up · start cleaning" : "Picked up · advance received · start cleaning"}
           </button>
         </div>
       )}

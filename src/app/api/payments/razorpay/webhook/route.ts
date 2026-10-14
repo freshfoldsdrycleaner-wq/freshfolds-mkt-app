@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     const p = event.payload?.payment?.entity;
     const orderId = p?.notes?.orderId;
     if (p?.id && orderId && typeof p.amount === "number") {
-      await recordRazorpayAdvance(orderId, p.id, p.amount / 100);
+      await recordRazorpayAdvance(orderId, p.id, p.amount / 100, Number(p.notes?.dcShare ?? 0) || 0);
     }
   }
   return NextResponse.json({ ok: true });

@@ -23,10 +23,21 @@ async function rzp<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export async function createRazorpayOrder(amountRupees: number, receipt: string, notes: Record<string, string>) {
+export async function createRazorpayOrder(
+  amountRupees: number,
+  receipt: string,
+  notes: Record<string, string>,
+  transfers?: { account: string; amount: number; currency: string; notes?: Record<string, string> }[]
+) {
   return rzp<{ id: string; amount: number; currency: string }>("/orders", {
     method: "POST",
-    body: JSON.stringify({ amount: Math.round(amountRupees * 100), currency: "INR", receipt: receipt.slice(0, 40), notes }),
+    body: JSON.stringify({
+      amount: Math.round(amountRupees * 100),
+      currency: "INR",
+      receipt: receipt.slice(0, 40),
+      notes,
+      ...(transfers && transfers.length ? { transfers } : {}),
+    }),
   });
 }
 
@@ -63,7 +74,7 @@ export function advanceDue(estimatedTotal: number, amountPaid: number): number {
  * Records a captured Razorpay payment against an order. Safe to call twice
  * (checkout verify and webhook both call it): the payment id is the unique key.
  */
-export async function recordRazorpayAdvance(orderId: string, paymentId: string, amountRupees: number): Promise<boolean> {
+export async function recordRazorpayAdvance(orderId: string, paymentId: string, amountRupees: number, autoSplitRupees = 0): Promise<boolean> {
   const transactionId = `${FF_ADVANCE_PREFIX}RZP-${paymentId}`;
   const done = await prisma.$transaction(async (tx) => {
     if (await tx.payment.findUnique({ where: { transactionId } })) return null;
@@ -75,6 +86,12 @@ export async function recordRazorpayAdvance(orderId: string, paymentId: string, 
     const paid = Number(order.amountPaid) + amountRupees;
     const balance = Math.max(0, Number(order.balanceDue ?? order.estimatedTotal) - amountRupees);
     await tx.order.update({ where: { id: orderId }, data: { amountPaid: paid, balanceDue: balance, advanceClaimedAt: null } });
+    // The dry-cleaner's share of this advance was sent to him by Razorpay at the moment of payment.
+    if (autoSplitRupees > 0) {
+      await tx.vendorPayout.create({
+        data: { dryCleanerId: order.dryCleanerId, amount: autoSplitRupees, note: `Sent automatically by Razorpay · ${order.orderNumber}` },
+      });
+    }
     return order;
   });
   if (!done) return false;

@@ -28,7 +28,31 @@ export async function POST(req: Request) {
   if (amount <= 0) return NextResponse.json({ error: "Your advance is already paid." }, { status: 409 });
 
   try {
-    const rz = await createRazorpayOrder(amount, order.orderNumber, { orderId: order.id, orderNumber: order.orderNumber });
+    // If this dry-cleaner has a Razorpay linked account, his share of the advance (advance minus
+    // Fresh Folds' fee) is sent to him automatically; Fresh Folds keeps the fee in its own account.
+    const dc = await prisma.dryCleaner.findUnique({ where: { id: order.dryCleanerId }, select: { razorpayAccountId: true } });
+    const fee = Math.min(amount, Math.max(0, Number(order.commissionAmount ?? 0)));
+    const dcShare = Math.round((amount - fee) * 100) / 100;
+    const baseNotes = { orderId: order.id, orderNumber: order.orderNumber };
+    let rz;
+    let splitRupees = 0;
+    if (dc?.razorpayAccountId && dcShare > 0) {
+      try {
+        rz = await createRazorpayOrder(
+          amount,
+          order.orderNumber,
+          { ...baseNotes, dcShare: String(dcShare) },
+          [{ account: dc.razorpayAccountId, amount: Math.round(dcShare * 100), currency: "INR", notes: { orderNumber: order.orderNumber } }]
+        );
+        splitRupees = dcShare;
+      } catch {
+        // Route not available for this account yet: take the payment normally and settle by hand.
+        rz = await createRazorpayOrder(amount, order.orderNumber, baseNotes);
+      }
+    } else {
+      rz = await createRazorpayOrder(amount, order.orderNumber, baseNotes);
+    }
+    void splitRupees;
     return NextResponse.json({ keyId: process.env.RAZORPAY_KEY_ID, razorpayOrderId: rz.id, amount: rz.amount, currency: rz.currency, orderNumber: order.orderNumber });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 502 });

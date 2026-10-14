@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     if (rz.notes?.orderId !== order.id || rz.amount_paid <= 0) {
       return NextResponse.json({ error: "Payment does not match this order." }, { status: 400 });
     }
-    await recordRazorpayAdvance(order.id, b.razorpay_payment_id, rz.amount_paid / 100);
+    await recordRazorpayAdvance(order.id, b.razorpay_payment_id, rz.amount_paid / 100, Number(rz.notes?.dcShare ?? 0) || 0);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 502 });
