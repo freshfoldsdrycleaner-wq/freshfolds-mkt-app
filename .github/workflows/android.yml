@@ -103,3 +103,13 @@ jobs:
           path: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Publish a download link for the APK
+        if: env.BUILD_KIND == 'play'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk Fresh-Folds.apk
+          gh release create "build-${{ github.run_number }}" Fresh-Folds.apk \
+            --title "Fresh Folds app (build ${{ github.run_number }})" \
+            --notes "Install file for Android. Download Fresh-Folds.apk and open it." --latest
