@@ -382,9 +382,20 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
       )}
 
       {app === "dryclean" && info?.acceptedAt && (
-        <div style={{ marginBottom: 12 }}>
-          <p className="ff-label">Pickup</p>
-          <label className="ff-label">Inspection photos of the clothes</label>
+        <div style={{ marginBottom: 12, padding: 14, background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 14 }}>
+          <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Pickup and receiving</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, marginBottom: 12 }}>
+            <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 10px" }}>✓ Ready to pickup</span>
+            <span style={{ color: "#94a3b8" }}>›</span>
+            <span style={{ background: shots.length > 0 ? "#16a34a" : "#2563eb", color: "#fff", borderRadius: 999, padding: "4px 10px" }}>{shots.length > 0 ? "✓ Photos" : "Photos"}</span>
+            <span style={{ color: "#94a3b8" }}>›</span>
+            <span style={{ background: "#e2e8f0", color: "#475569", borderRadius: 999, padding: "4px 10px" }}>Received</span>
+          </div>
+          {advPaid && (
+            <p style={{ fontSize: 12, color: "#15803d", fontWeight: 700, marginBottom: 10 }}>✓ Advance of Rs {Math.round(Number(info?.amountPaid || 0))} paid online</p>
+          )}
+          <p style={{ fontSize: 13, color: "#475569", marginBottom: 8 }}>Collect the clothes, then take clear photos of them before you start.</p>
+          <label className="ff-label">Photos of the clothes</label>
           <label
             className="ff-btn ff-btn-outline"
             style={{ display: "block", textAlign: "center", cursor: "pointer", marginBottom: 6 }}
@@ -432,11 +443,7 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
               ))}
             </div>
           )}
-          {advPaid ? (
-            <p style={{ fontSize: 13, color: "#059669", fontWeight: 600, background: "#ecfdf5", padding: 10, borderRadius: 8, marginBottom: 8 }}>
-              ✓ Advance of Rs {Math.round(Number(info?.amountPaid || 0))} paid online. Nothing to collect now.
-            </p>
-          ) : (
+          {!advPaid && (
             <>
           <label className="ff-label">Advance was paid to</label>
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -482,12 +489,17 @@ export default function OrderEditCard({ orderId, app, allowEdit, onDone }: Props
           )}
           <button
             className="ff-btn ff-btn-primary"
-            style={{ width: "100%", marginTop: 8 }}
-            disabled={busy}
+            style={{ width: "100%", marginTop: 12, padding: "14px 12px", fontSize: 15 }}
+            disabled={busy || shots.length === 0}
             onClick={selfPickup}
           >
-            {advPaid ? "Picked up · start cleaning" : "Picked up · advance received · start cleaning"}
+            {busy ? "Saving…" : advPaid ? "✓ Order received · start dry-cleaning" : "✓ Advance received · order received · start dry-cleaning"}
           </button>
+          {shots.length === 0 ? (
+            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, textAlign: "center" }}>Add at least one photo to continue.</p>
+          ) : (
+            <p style={{ fontSize: 11, color: "#64748b", marginTop: 6, textAlign: "center" }}>The customer will be told: order received, dry-cleaning in progress.</p>
+          )}
         </div>
       )}
 

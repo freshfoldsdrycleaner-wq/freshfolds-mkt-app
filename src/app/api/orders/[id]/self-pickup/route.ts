@@ -96,11 +96,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await getNotificationProvider().send({
       userId: order.customerId,
       orderId: order.id,
-      title: "Clothes picked up, cleaning started",
+      title: "Order received · dry-cleaning in progress",
       message:
         advance > 0
-          ? `${order.orderNumber}: picked up, advance of Rs ${advance} received. Dry cleaning is now in progress.`
-          : `${order.orderNumber}: your clothes were picked up. Dry cleaning is now in progress.`,
+          ? `${order.orderNumber}: your clothes were received and the advance of Rs ${advance} is noted. Dry-cleaning is now in progress.`
+          : `${order.orderNumber}: your clothes were received. Dry-cleaning is now in progress.`,
     });
 
     return NextResponse.json({
