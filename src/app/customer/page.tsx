@@ -85,6 +85,8 @@ export default function CustomerApp() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [sameAddr, setSameAddr] = useState(true);
+  const finalDelivery = sameAddr ? pickupAddress : deliveryAddress;
   const [preferredPickupAt, setPreferredPickupAt] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -315,7 +317,7 @@ export default function CustomerApp() {
   }
 
   async function placeOrder() {
-    if (!vendor || !pickupAddress.trim() || !deliveryAddress.trim()) return;
+    if (!vendor || !pickupAddress.trim() || !finalDelivery.trim()) return;
     if (forOther && (!contactName.trim() || contactPhone.replace(/\D/g, "").length < 10)) {
       setError("Enter the name and a 10-digit phone number of the person at the pickup address.");
       return;
@@ -331,7 +333,7 @@ export default function CustomerApp() {
           body: JSON.stringify({
             dryCleanerId: vendor.id,
             pickupAddress: pickupAddress.trim(),
-            deliveryAddress: deliveryAddress.trim(),
+            deliveryAddress: finalDelivery.trim(),
             contactName: forOther ? contactName.trim() : undefined,
             contactPhone: forOther ? contactPhone.trim() : undefined,
             couponCode: coupon ? coupon.code : undefined,
@@ -549,8 +551,16 @@ export default function CustomerApp() {
             <button className="ff-btn ff-btn-outline" style={{ width: "100%", marginBottom: 6 }} onClick={shareMyLocation}>📍 Share my current location</button>
             {locMsg && <p style={{ fontSize: 12, color: locMsg.startsWith("✓") ? "#059669" : locMsg.startsWith("Getting") ? "#64748b" : "#b91c1c", marginBottom: 10 }}>{locMsg}</p>}
             {!locMsg && <div style={{ height: 4 }} />}
-            <label className="ff-label">Delivery address</label>
-            <input className="ff-input" style={{ marginBottom: 10 }} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Same or different address" />
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, marginBottom: 10 }}>
+              <input type="checkbox" checked={sameAddr} onChange={(e) => setSameAddr(e.target.checked)} />
+              Deliver to the same address
+            </label>
+            {!sameAddr && (
+              <>
+                <label className="ff-label">Delivery address</label>
+                <input className="ff-input" style={{ marginBottom: 10 }} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Different delivery address" />
+              </>
+            )}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 8 }}>
               <input type="checkbox" checked={forOther} onChange={(e) => setForOther(e.target.checked)} />
               This order is for someone else (e.g. a relative in another city)
@@ -573,7 +583,7 @@ export default function CustomerApp() {
               min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
               onChange={(e) => setPreferredPickupAt(e.target.value)}
             />
-            <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} disabled={placingOrder || !pickupAddress.trim() || !deliveryAddress.trim()} onClick={placeOrder}>
+            <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} disabled={placingOrder || !pickupAddress.trim() || !finalDelivery.trim()} onClick={placeOrder}>
               {placingOrder ? "Placing order…" : "Confirm order"}
             </button>
           </>
