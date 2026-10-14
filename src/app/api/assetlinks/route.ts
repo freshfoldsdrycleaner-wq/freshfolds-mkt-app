@@ -11,12 +11,10 @@ export async function GET() {
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
   const body = fingerprints.length
-    ? [
-        {
-          relation: ["delegate_permission/common.handle_all_urls"],
-          target: { namespace: "android_app", package_name: "com.freshfolds.app", sha256_cert_fingerprints: fingerprints },
-        },
-      ]
+    ? ["com.freshfolds.app", "com.freshfolds.admin"].map((pkg) => ({
+        relation: ["delegate_permission/common.handle_all_urls"],
+        target: { namespace: "android_app", package_name: pkg, sha256_cert_fingerprints: fingerprints },
+      }))
     : [];
   return new NextResponse(JSON.stringify(body), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
 }

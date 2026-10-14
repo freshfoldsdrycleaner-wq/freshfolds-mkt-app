@@ -10,11 +10,22 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.freshfolds.app'
         minSdk 23
         targetSdk 36
         versionCode versionCodeProp
         versionName versionNameProp
+    }
+
+    flavorDimensions 'app'
+    productFlavors {
+        customer {
+            dimension 'app'
+            applicationId 'com.freshfolds.app'
+        }
+        admin {
+            dimension 'app'
+            applicationId 'com.freshfolds.admin'
+        }
     }
 
     signingConfigs {

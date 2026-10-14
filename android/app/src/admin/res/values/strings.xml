@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appName">Fresh Folds Admin</string>
+    <string name="defaultUrl">https://FF_HOST/admin/login</string>
+</resources>

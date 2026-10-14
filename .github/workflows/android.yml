@@ -71,13 +71,13 @@ jobs:
           echo "FF_KEYSTORE_PASSWORD=$PW" >> "$GITHUB_ENV"
 
       - name: Point the app at the website address
-        run: sed -i "s/FF_HOST/${{ inputs.host || 'freshfold-api-production-8165.up.railway.app' }}/g" android/app/src/main/res/values/strings.xml
+        run: sed -i "s/FF_HOST/${{ inputs.host || 'freshfold-api-production-8165.up.railway.app' }}/g" android/app/src/*/res/values/strings.xml
 
       - name: Build
         run: |
-          gradle -p android bundleRelease assembleRelease --console=plain \
+          gradle -p android bundleCustomerRelease assembleCustomerRelease assembleAdminRelease --console=plain \
             -PffKeystore="$KS_PATH" \
-            -PffVersionCode=${{ inputs.version_code || '1' }} -PffVersionName="${{ inputs.version_name || '1.0' }}" > build.log 2>&1 || {
+            -PffVersionCode=${{ inputs.version_code || github.run_number }} -PffVersionName="${{ inputs.version_name || '1.0' }}" > build.log 2>&1 || {
             echo "::error::Build failed: $(grep -E 'error|Error|FAILED|What went wrong|Could not|not found' -A2 build.log | head -30 | sed ':a;N;$!ba;s/\n/%0A/g')"
             exit 1
           }
@@ -101,15 +101,17 @@ jobs:
         with:
           name: fresh-folds-${{ env.BUILD_KIND }}-build
           path: |
-            android/app/build/outputs/bundle/release/app-release.aab
-            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/customerRelease/app-customer-release.aab
+            android/app/build/outputs/apk/customer/release/app-customer-release.apk
+            android/app/build/outputs/apk/admin/release/app-admin-release.apk
 
       - name: Publish a download link for the APK
         if: env.BUILD_KIND == 'play'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk Fresh-Folds.apk
-          gh release create "build-${{ github.run_number }}" Fresh-Folds.apk \
+          cp android/app/build/outputs/apk/customer/release/app-customer-release.apk Fresh-Folds.apk
+          cp android/app/build/outputs/apk/admin/release/app-admin-release.apk Fresh-Folds-Admin.apk
+          gh release create "build-${{ github.run_number }}" Fresh-Folds.apk Fresh-Folds-Admin.apk \
             --title "Fresh Folds app (build ${{ github.run_number }})" \
             --notes "Install file for Android. Download Fresh-Folds.apk and open it." --latest
