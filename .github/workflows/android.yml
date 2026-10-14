@@ -1,6 +1,9 @@
 name: Build Android app (Play Store)
 
 on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
   workflow_dispatch:
     inputs:
       host:
@@ -35,36 +38,45 @@ jobs:
 
       - name: Signing key (created once, then reused for every update)
         env:
-          FF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          REAL_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          if [ -z "$FF_KEYSTORE_PASSWORD" ]; then
-            echo "::error::Add a repository secret named ANDROID_KEYSTORE_PASSWORD first (a long password you choose)."
-            exit 1
+          if [ -n "$REAL_PASSWORD" ]; then
+            KS=android/upload-keystore.p12
+            PW="$REAL_PASSWORD"
+            echo "BUILD_KIND=play" >> "$GITHUB_ENV"
+            if [ ! -f "$KS" ]; then
+              keytool -genkeypair -storetype PKCS12 -keystore "$KS" \
+                -alias freshfolds -keyalg RSA -keysize 2048 -validity 10000 \
+                -storepass "$PW" -keypass "$PW" \
+                -dname "CN=Fresh Folds, O=Fresh Folds, L=Delhi, C=IN"
+              echo "NEW_KEYSTORE=1" >> "$GITHUB_ENV"
+            fi
+          else
+            # No password secret yet: make a throw-away key so the build can still be tested.
+            # This build is NOT for Google Play.
+            KS=android/test-only.p12
+            PW="test-only-key"
+            echo "BUILD_KIND=test" >> "$GITHUB_ENV"
+            keytool -genkeypair -storetype PKCS12 -keystore "$KS" \
+              -alias freshfolds -keyalg RSA -keysize 2048 -validity 1000 \
+              -storepass "$PW" -keypass "$PW" -dname "CN=Fresh Folds Test"
           fi
-          if [ ! -f android/upload-keystore.p12 ]; then
-            keytool -genkeypair -storetype PKCS12 -keystore android/upload-keystore.p12 \
-              -alias freshfolds -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass "$FF_KEYSTORE_PASSWORD" -keypass "$FF_KEYSTORE_PASSWORD" \
-              -dname "CN=Fresh Folds, O=Fresh Folds, L=Delhi, C=IN"
-            echo "NEW_KEYSTORE=1" >> "$GITHUB_ENV"
-          fi
+          echo "KS_PATH=$GITHUB_WORKSPACE/$KS" >> "$GITHUB_ENV"
+          echo "::add-mask::$PW"
+          echo "FF_KEYSTORE_PASSWORD=$PW" >> "$GITHUB_ENV"
 
       - name: Point the app at the website address
-        run: sed -i "s/FF_HOST/${{ inputs.host }}/g" android/app/src/main/res/values/strings.xml
+        run: sed -i "s/FF_HOST/${{ inputs.host || 'freshfold-api-production-8165.up.railway.app' }}/g" android/app/src/main/res/values/strings.xml
 
       - name: Build
-        env:
-          FF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           gradle -p android bundleRelease assembleRelease \
-            -PffKeystore="$GITHUB_WORKSPACE/android/upload-keystore.p12" \
-            -PffVersionCode=${{ inputs.version_code }} -PffVersionName="${{ inputs.version_name }}"
+            -PffKeystore="$KS_PATH" \
+            -PffVersionCode=${{ inputs.version_code || '1' }} -PffVersionName="${{ inputs.version_name || '1.0' }}"
 
       - name: Show the signing fingerprint
-        env:
-          FF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          FP=$(keytool -list -v -keystore android/upload-keystore.p12 -storepass "$FF_KEYSTORE_PASSWORD" -alias freshfolds | grep "SHA256:" | sed 's/.*SHA256: //')
+          FP=$(keytool -list -v -keystore "$KS_PATH" -storepass "$FF_KEYSTORE_PASSWORD" -alias freshfolds | grep "SHA256:" | sed 's/.*SHA256: //')
           echo "### Upload key SHA-256" >> "$GITHUB_STEP_SUMMARY"
           echo "$FP" >> "$GITHUB_STEP_SUMMARY"
 
@@ -79,7 +91,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: fresh-folds-play-store
+          name: fresh-folds-${{ env.BUILD_KIND }}-build
           path: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
