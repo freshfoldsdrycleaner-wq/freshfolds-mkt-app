@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+def versionCodeProp = (project.findProperty('ffVersionCode') ?: '1').toInteger()
+def versionNameProp = project.findProperty('ffVersionName') ?: '1.0'
+
+android {
+    namespace 'com.freshfolds.app'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.freshfolds.app'
+        minSdk 23
+        targetSdk 36
+        versionCode versionCodeProp
+        versionName versionNameProp
+    }
+
+    signingConfigs {
+        release {
+            def ks = project.findProperty('ffKeystore')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('FF_KEYSTORE_PASSWORD')
+                keyAlias 'freshfolds'
+                keyPassword System.getenv('FF_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (project.findProperty('ffKeystore')) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

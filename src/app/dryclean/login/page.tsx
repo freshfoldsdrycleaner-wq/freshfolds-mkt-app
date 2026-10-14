@@ -53,6 +53,7 @@ export default function DryCleanerLoginPage() {
   return (
     <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div className="ff-card" style={{ width: 380, padding: 32 }}>
+        <a href="/app" style={{ display: "inline-block", fontSize: 12, color: "#64748b", textDecoration: "none", marginBottom: 12 }}>← Switch between customer and dry-cleaner</a>
         <div style={{ width: 40, height: 40, borderRadius: 10, background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, marginBottom: 16 }}>
           FF
         </div>

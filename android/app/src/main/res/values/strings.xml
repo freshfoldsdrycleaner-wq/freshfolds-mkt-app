@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appName">Fresh Folds</string>
+    <!-- FF_HOST is replaced with the real website address when the app is built. -->
+    <string name="hostName">FF_HOST</string>
+    <string name="defaultUrl">https://FF_HOST/app</string>
+    <string name="assetStatements">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://FF_HOST\"}}]</string>
+</resources>

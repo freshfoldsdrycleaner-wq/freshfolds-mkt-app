@@ -1,0 +1,85 @@
+name: Build Android app (Play Store)
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Website address the app opens (no https://)"
+        default: "freshfold-api-production-8165.up.railway.app"
+      version_code:
+        description: "Version number. Must be higher than the last upload to Google Play"
+        default: "1"
+      version_name:
+        description: "Version name shown to users"
+        default: "1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Signing key (created once, then reused for every update)
+        env:
+          FF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$FF_KEYSTORE_PASSWORD" ]; then
+            echo "::error::Add a repository secret named ANDROID_KEYSTORE_PASSWORD first (a long password you choose)."
+            exit 1
+          fi
+          if [ ! -f android/upload-keystore.p12 ]; then
+            keytool -genkeypair -storetype PKCS12 -keystore android/upload-keystore.p12 \
+              -alias freshfolds -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$FF_KEYSTORE_PASSWORD" -keypass "$FF_KEYSTORE_PASSWORD" \
+              -dname "CN=Fresh Folds, O=Fresh Folds, L=Delhi, C=IN"
+            echo "NEW_KEYSTORE=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Point the app at the website address
+        run: sed -i "s/FF_HOST/${{ inputs.host }}/g" android/app/src/main/res/values/strings.xml
+
+      - name: Build
+        env:
+          FF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          gradle -p android bundleRelease assembleRelease \
+            -PffKeystore="$GITHUB_WORKSPACE/android/upload-keystore.p12" \
+            -PffVersionCode=${{ inputs.version_code }} -PffVersionName="${{ inputs.version_name }}"
+
+      - name: Show the signing fingerprint
+        env:
+          FF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          FP=$(keytool -list -v -keystore android/upload-keystore.p12 -storepass "$FF_KEYSTORE_PASSWORD" -alias freshfolds | grep "SHA256:" | sed 's/.*SHA256: //')
+          echo "### Upload key SHA-256" >> "$GITHUB_STEP_SUMMARY"
+          echo "$FP" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save the signing key to the repository (first time only)
+        if: env.NEW_KEYSTORE == '1'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add android/upload-keystore.p12
+          git commit -m "Add Play Store upload key (password protected)"
+          git push
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fresh-folds-play-store
+          path: |
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/apk/release/app-release.apk
