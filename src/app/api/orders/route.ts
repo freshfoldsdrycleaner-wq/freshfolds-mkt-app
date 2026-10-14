@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
 import { calculateEstimatedOrder, generateOrderNumber, effectivePrice, customerPrice } from "@/lib/pricing";
 import { getNotificationProvider } from "@/lib/providers/notification";
+import { ordersTodayFor, availabilityOf } from "@/lib/availability";
 import { evaluateCoupon } from "@/lib/coupons";
 
 const DEFAULT_COMMISSION_RATE = Number(process.env.DEFAULT_COMMISSION_RATE ?? 10);
@@ -55,6 +56,10 @@ export async function POST(req: Request) {
   if (!dryCleaner || dryCleaner.status !== "ACTIVE") {
     return NextResponse.json({ error: "Dry-cleaner is not available" }, { status: 400 });
   }
+
+  const todayCount = (await ordersTodayFor([dryCleanerId])).get(dryCleanerId) ?? 0;
+  const avail = availabilityOf(dryCleaner, todayCount);
+  if (!avail.open) return NextResponse.json({ error: `${dryCleaner.businessName}: ${avail.message}` }, { status: 400 });
 
   if (preferredPickupAt && new Date(preferredPickupAt).getTime() <= Date.now()) {
     return NextResponse.json({ error: "Preferred pickup time must be in the future" }, { status: 400 });

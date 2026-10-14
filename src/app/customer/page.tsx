@@ -33,12 +33,13 @@ interface DryCleanerSummary {
   id: string; businessName: string; address: string; distanceKm: number;
   estimatedPickupMinutes: number; rating: number | null; reviewCount: number;
   startingPrice: number | null; operatingHours: string | null;
+  availability?: { open: boolean; message: string | null };
 }
 interface Service {
   id: string; category: string; itemName: string; serviceName: string;
   price: number; discountPercent: number; effectivePrice: number; hasPhoto: boolean;
 }
-interface DryCleanerDetail { id: string; businessName: string; address: string; operatingHours: string | null; rating: number | null; services: Service[]; }
+interface DryCleanerDetail { id: string; businessName: string; address: string; operatingHours: string | null; rating: number | null; services: Service[]; availability?: { open: boolean; message: string | null }; }
 interface OrderRow {
   id: string; orderNumber: string; status: string; dryCleanerName: string;
   estimatedTotal: number; finalTotal: number | null; amountPaid: number; balanceDue: number | null; createdAt: string;
@@ -440,6 +441,7 @@ export default function CustomerApp() {
                       {v.rating != null && <span className="cx-rate">★ {v.rating}{v.reviewCount ? ` (${v.reviewCount})` : ""}</span>}
                     </div>
                     <p style={{ fontSize: 12, color: "#4b6b7a", margin: "4px 0" }}>{v.distanceKm} km away · Pickup in {v.estimatedPickupMinutes} mins</p>
+                    {v.availability && !v.availability.open && <p style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700, margin: "0 0 4px" }}>{v.availability.message}</p>}
                     {v.startingPrice != null && <p style={{ fontSize: 13, color: "#0a6f7a", fontWeight: 700, margin: 0 }}>From {inr(v.startingPrice)}</p>}
                   </div>
                 </button>
@@ -453,6 +455,11 @@ export default function CustomerApp() {
             <button className="ff-btn ff-btn-outline" style={{ marginBottom: 12 }} onClick={() => setScreen("list")}>← Back</button>
             <h2 style={{ margin: "0 0 2px" }}>{vendor.businessName}</h2>
             <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>{vendor.address}</p>
+            {vendor.availability && !vendor.availability.open && (
+              <div className="ff-card" style={{ padding: 12, marginBottom: 12, background: "#fef2f2", borderColor: "#fecaca", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
+                {vendor.availability.message}
+              </div>
+            )}
             {vendor.services.map((s) => {
               const qty = cart[s.id] || 0;
               return (
@@ -475,7 +482,7 @@ export default function CustomerApp() {
                       <button className="ff-btn ff-btn-outline" style={{ padding: "4px 10px" }} onClick={() => changeQty(s.id, 1)}>+</button>
                     </div>
                   ) : (
-                    <button className="ff-btn ff-btn-outline" onClick={() => changeQty(s.id, 1)}>Add</button>
+                    <button className="ff-btn ff-btn-outline" disabled={vendor.availability ? !vendor.availability.open : false} onClick={() => changeQty(s.id, 1)}>Add</button>
                   )}
                 </div>
               );

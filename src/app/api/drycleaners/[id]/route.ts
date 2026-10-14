@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ordersTodayFor, availabilityOf } from "@/lib/availability";
 import { customerPrice } from "@/lib/pricing";
 
 /**
@@ -27,7 +28,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         ) / 10
       : null;
 
+  const ordersToday = (await ordersTodayFor([dryCleaner.id])).get(dryCleaner.id) ?? 0;
   return NextResponse.json({
+    availability: availabilityOf(dryCleaner, ordersToday),
     id: dryCleaner.id,
     businessName: dryCleaner.businessName,
     address: dryCleaner.address,

@@ -3,6 +3,7 @@ import { notifyAdmins } from "@/lib/providers/notification";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { haversineDistanceKm, estimateMinutesFromKm } from "@/lib/geo";
+import { ordersTodayFor, availabilityOf } from "@/lib/availability";
 import { effectivePrice, customerPrice } from "@/lib/pricing";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
 
@@ -43,6 +44,7 @@ export async function GET(req: Request) {
     },
   });
 
+  const todayCounts = await ordersTodayFor(dryCleaners.map((d) => d.id));
   const withDistance = dryCleaners
     .map((dc) => {
       const distanceKm = haversineDistanceKm(lat, lng, dc.latitude, dc.longitude);
@@ -64,6 +66,7 @@ export async function GET(req: Request) {
         reviewCount: dc.reviews.length,
         startingPrice,
         operatingHours: dc.operatingHours,
+        availability: availabilityOf(dc, todayCounts.get(dc.id) ?? 0),
       };
     })
     .filter((dc) => dc.distanceKm <= maxKm);

@@ -9,6 +9,7 @@ import { ReviewsList } from "@/components/Reviews";
 import DryCleanerTermsForm from "@/components/DryCleanerTermsForm";
 import PushSetup from "@/components/PushSetup";
 import ShopOffers from "@/components/ShopOffers";
+import StoreControls from "@/components/StoreControls";
 import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
 
 const inr = (n: number | null | undefined) =>
@@ -31,6 +32,8 @@ const STAGE_LABELS: Record<string, string> = {
 interface DryCleaner {
   id: string; businessName: string; phone: string; address: string;
   latitude: number; longitude: number; operatingHours: string | null; status: string; createdAt: string; termsVersion?: string | null;
+  acceptingOrders?: boolean; dailyOrderLimit?: number | null; ordersToday?: number;
+  availability?: { open: boolean; message: string | null };
 }
 interface Service {
   id: string; category: string; itemName: string; serviceName: string;
@@ -425,6 +428,7 @@ export default function DryCleanDashboard() {
             </div>
           )}
 
+          {!openOrder && tab === "overview" && <StoreControls initial={dc} />}
           {!openOrder && tab === "overview" && (
             <div className="ff-card" style={{ padding: 20 }}>
               <div className="ff-stat-grid">

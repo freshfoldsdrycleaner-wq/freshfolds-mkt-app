@@ -142,6 +142,8 @@ model DryCleaner {
   termsVersion    String?
   termsAcceptedAt DateTime?
   termsAcceptedBy String?
+  acceptingOrders Boolean @default(true) // false: store is switched off
+  dailyOrderLimit Int? // max new orders per day (IST); null = no limit
 
   services Service[]
   orders   Order[]
