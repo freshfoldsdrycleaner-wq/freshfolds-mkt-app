@@ -8,6 +8,8 @@ import OrderPhotos from "@/components/OrderPhotos";
 import { ReviewsList } from "@/components/Reviews";
 import DryCleanerTermsForm from "@/components/DryCleanerTermsForm";
 import PushSetup from "@/components/PushSetup";
+import SetupChecklist from "@/components/SetupChecklist";
+import StarterPriceList from "@/components/StarterPriceList";
 import ShopOffers from "@/components/ShopOffers";
 import StoreControls from "@/components/StoreControls";
 import { TERMS_VERSION } from "@/lib/dryCleanerTerms";
@@ -32,7 +34,7 @@ const STAGE_LABELS: Record<string, string> = {
 interface DryCleaner {
   id: string; businessName: string; phone: string; address: string;
   latitude: number; longitude: number; operatingHours: string | null; status: string; createdAt: string; termsVersion?: string | null;
-  acceptingOrders?: boolean; dailyOrderLimit?: number | null; ordersToday?: number;
+  acceptingOrders?: boolean; dailyOrderLimit?: number | null; ordersToday?: number; payoutUpiId?: string | null; razorpayLinked?: boolean;
   availability?: { open: boolean; message: string | null };
 }
 interface Service {
@@ -87,8 +89,10 @@ export default function DryCleanDashboard() {
   const [regBusiness, setRegBusiness] = useState("");
   const [regAddress, setRegAddress] = useState("");
   const [regPhone, setRegPhone] = useState("");
-  const [regLat, setRegLat] = useState("28.6139");
-  const [regLng, setRegLng] = useState("77.2090");
+  const [regLat, setRegLat] = useState("");
+  const [regLng, setRegLng] = useState("");
+  const [regHours, setRegHours] = useState("");
+  const [locMsg, setLocMsg] = useState("");
   const [regSubmitting, setRegSubmitting] = useState(false);
 
   // service form state
@@ -174,6 +178,10 @@ export default function DryCleanDashboard() {
   async function submitRegistration() {
     setError("");
     if (!regBusiness.trim() || !regAddress.trim() || !regPhone.trim()) return;
+    if (!Number.isFinite(Number(regLat)) || !Number.isFinite(Number(regLng)) || regLat === "" || regLng === "") {
+      setError("Please tap \"Use my shop location\" while you are at the shop.");
+      return;
+    }
     setRegSubmitting(true);
     try {
       await apiFetch("/api/drycleaners", "dryclean", {
@@ -184,6 +192,7 @@ export default function DryCleanDashboard() {
           phone: regPhone.trim(),
           latitude: Number(regLat),
           longitude: Number(regLng),
+          ...(regHours.trim() ? { operatingHours: regHours.trim() } : {}),
         }),
       });
       loadProfile();
@@ -192,6 +201,24 @@ export default function DryCleanDashboard() {
     } finally {
       setRegSubmitting(false);
     }
+  }
+
+  function useMyLocation() {
+    setLocMsg("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocMsg("Location is not available on this phone.");
+      return;
+    }
+    setLocMsg("Getting location…");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setRegLat(pos.coords.latitude.toFixed(6));
+        setRegLng(pos.coords.longitude.toFixed(6));
+        setLocMsg("✓ Location saved. Stand inside your shop for the best result.");
+      },
+      () => setLocMsg("Could not get location. Please allow location permission and try again."),
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
   }
 
   function startEdit(s: Service) {
@@ -390,19 +417,15 @@ export default function DryCleanDashboard() {
             <label className="ff-label">Address</label>
             <input className="ff-input" value={regAddress} onChange={(e) => setRegAddress(e.target.value)} placeholder="Shop address" />
           </div>
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <div style={{ flex: 1 }}>
-              <label className="ff-label">Latitude</label>
-              <input className="ff-input" value={regLat} onChange={(e) => setRegLat(e.target.value)} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="ff-label">Longitude</label>
-              <input className="ff-input" value={regLng} onChange={(e) => setRegLng(e.target.value)} />
-            </div>
+          <div style={{ marginBottom: 12 }}>
+            <label className="ff-label">Opening hours (optional)</label>
+            <input className="ff-input" value={regHours} onChange={(e) => setRegHours(e.target.value)} placeholder="e.g. 9 AM to 8 PM, Mon-Sat" />
           </div>
-          <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
-            Tip: right-click your location on Google Maps to copy exact coordinates.
-          </p>
+          <div style={{ marginBottom: 16 }}>
+            <button type="button" className="ff-btn ff-btn-outline" style={{ width: "100%" }} onClick={useMyLocation}>📍 Use my shop location</button>
+            {locMsg && <p style={{ fontSize: 12, color: locMsg.startsWith("✓") ? "#059669" : "#64748b", marginTop: 6 }}>{locMsg}</p>}
+            <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>Customers nearby find you using this. Tap it while you are at your shop.</p>
+          </div>
           <button className="ff-btn ff-btn-primary" style={{ width: "100%" }} disabled={regSubmitting} onClick={submitRegistration}>
             {regSubmitting ? "Submitting…" : "Register"}
           </button>
@@ -428,6 +451,15 @@ export default function DryCleanDashboard() {
             </div>
           )}
 
+          {!openOrder && tab === "overview" && (
+            <SetupChecklist
+              dc={dc}
+              liveServices={(services || []).filter((x) => x.status === "ACTIVE" || x.status === "PENDING_EDIT" || x.status === "PENDING_DELETE").length}
+              pendingServices={(services || []).filter((x) => x.status === "PENDING_NEW").length}
+              onGoServices={() => setTab("services")}
+              onChanged={loadProfile}
+            />
+          )}
           {!openOrder && tab === "overview" && <StoreControls initial={dc} />}
           {!openOrder && tab === "overview" && (
             <div className="ff-card" style={{ padding: 20 }}>
@@ -443,6 +475,9 @@ export default function DryCleanDashboard() {
           {!openOrder && tab === "offers" && <ShopOffers />}
           {!openOrder && tab === "reviews" && <ReviewsList dryCleanerId={dc.id} app="dryclean" />}
 
+          {!openOrder && tab === "services" && services && (
+            <StarterPriceList dryCleanerId={dc.id} existing={services.map((x) => `${x.category}|${x.itemName}|${x.serviceName}`)} onDone={loadServices} />
+          )}
           {!openOrder && tab === "services" && (
             <div className="ff-card">
               {!services ? (

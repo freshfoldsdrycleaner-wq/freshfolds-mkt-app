@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { getNotificationProvider } from "@/lib/providers/notification";
 import { requireSession, requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth";
 
 const bodySchema = z.object({
   status: z.enum(["PENDING", "ACTIVE", "SUSPENDED", "DEACTIVATED"]),
+  approveServices: z.boolean().optional(),
 });
 
 /**
@@ -48,5 +50,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     },
   });
 
-  return NextResponse.json({ dryCleaner: { id: updated.id, status: updated.status } });
+  let approved = 0;
+  if (parsed.data.status === "ACTIVE" && parsed.data.approveServices) {
+    const r = await prisma.service.updateMany({ where: { dryCleanerId: dryCleaner.id, status: "PENDING_NEW" }, data: { status: "ACTIVE" } });
+    approved = r.count;
+  }
+  if (parsed.data.status === "ACTIVE" && dryCleaner.status !== "ACTIVE") {
+    try {
+      await getNotificationProvider().send({
+        userId: dryCleaner.ownerId,
+        title: "You are live on Fresh Folds!",
+        message: `${dryCleaner.businessName} is approved. Customers nearby can now order from you.`,
+      });
+    } catch {}
+  }
+
+  return NextResponse.json({ dryCleaner: { id: updated.id, status: updated.status }, servicesApproved: approved });
 }

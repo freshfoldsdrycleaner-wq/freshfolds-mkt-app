@@ -43,6 +43,8 @@ export async function GET(req: Request) {
       operatingHours: dryCleaner.operatingHours,
       status: dryCleaner.status,
       termsVersion: dryCleaner.termsVersion,
+      payoutUpiId: dryCleaner.payoutUpiId,
+      razorpayLinked: !!dryCleaner.razorpayAccountId,
       createdAt: dryCleaner.createdAt,
     },
   });
@@ -51,6 +53,8 @@ export async function GET(req: Request) {
 const patchSchema = z.object({
   acceptingOrders: z.boolean().optional(),
   dailyOrderLimit: z.number().int().positive().max(10000).nullable().optional(),
+  payoutUpiId: z.string().trim().regex(/^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9.-]{1,30}$/, "Enter a UPI ID like name@bank").nullable().optional(),
+  operatingHours: z.string().trim().max(80).nullable().optional(),
 });
 
 /** PATCH /api/drycleaners/me: switch the store on/off and set the daily order limit. */
@@ -65,7 +69,7 @@ export async function PATCH(req: Request) {
     throw e;
   }
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: "Enter a whole number of orders, or leave it empty for no limit." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message?.includes("UPI") ? "Enter a UPI ID like name@bank" : "Enter a whole number of orders, or leave it empty for no limit." }, { status: 400 });
   const dc = await prisma.dryCleaner.findUnique({ where: { ownerId: session.userId } });
   if (!dc) return NextResponse.json({ error: "No dry-cleaner registered on this account yet" }, { status: 404 });
   const updated = await prisma.dryCleaner.update({
@@ -73,12 +77,15 @@ export async function PATCH(req: Request) {
     data: {
       ...(parsed.data.acceptingOrders !== undefined ? { acceptingOrders: parsed.data.acceptingOrders } : {}),
       ...(parsed.data.dailyOrderLimit !== undefined ? { dailyOrderLimit: parsed.data.dailyOrderLimit } : {}),
+      ...(parsed.data.payoutUpiId !== undefined ? { payoutUpiId: parsed.data.payoutUpiId } : {}),
+      ...(parsed.data.operatingHours !== undefined ? { operatingHours: parsed.data.operatingHours } : {}),
     },
   });
   const ordersToday = (await ordersTodayFor([dc.id])).get(dc.id) ?? 0;
   return NextResponse.json({
     acceptingOrders: updated.acceptingOrders,
     dailyOrderLimit: updated.dailyOrderLimit,
+    payoutUpiId: updated.payoutUpiId,
     ordersToday,
     availability: availabilityOf(updated, ordersToday),
   });

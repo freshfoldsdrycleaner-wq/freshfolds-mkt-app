@@ -27,6 +27,8 @@ export async function GET(req: Request) {
     orderBy: { createdAt: "desc" },
   });
 
+  const svc = await prisma.service.groupBy({ by: ["dryCleanerId", "status"], _count: { _all: true } });
+  const countOf = (id: string, st: string) => svc.find((x) => x.dryCleanerId === id && x.status === st)?._count._all ?? 0;
   const agg = await prisma.review.groupBy({ by: ["dryCleanerId"], _avg: { rating: true }, _count: { _all: true } });
   const ratingOf = new Map(agg.map((a) => [a.dryCleanerId, a]));
 
@@ -39,6 +41,14 @@ export async function GET(req: Request) {
       ownerName: dc.owner.name,
       ownerPhone: dc.owner.phone,
       termsVersion: dc.termsVersion,
+      phone: dc.phone,
+      latitude: dc.latitude,
+      longitude: dc.longitude,
+      operatingHours: dc.operatingHours,
+      payoutUpiId: dc.payoutUpiId,
+      razorpayLinked: !!dc.razorpayAccountId,
+      servicesLive: countOf(dc.id, "ACTIVE"),
+      servicesPending: countOf(dc.id, "PENDING_NEW"),
       termsAcceptedAt: dc.termsAcceptedAt,
       termsAcceptedBy: dc.termsAcceptedBy,
       createdAt: dc.createdAt,

@@ -7,6 +7,7 @@ import { apiFetch, getToken, clearToken, ApiError } from "@/lib/apiClient";
 import CouponAdmin from "@/components/CouponAdmin";
 import PayoutAdmin from "@/components/PayoutAdmin";
 import AllOrdersAdmin from "@/components/AllOrdersAdmin";
+import InviteCard from "@/components/InviteCard";
 import PushSetup from "@/components/PushSetup";
 
 const inr = (n: number | null | undefined) =>
@@ -42,6 +43,8 @@ interface DryCleaner {
   termsAcceptedBy?: string | null;
   avgRating?: number | null;
   reviewCount?: number;
+  phone?: string; latitude?: number; longitude?: number; operatingHours?: string | null;
+  payoutUpiId?: string | null; razorpayLinked?: boolean; servicesLive?: number; servicesPending?: number;
 }
 interface PendingService {
   id: string;
@@ -157,10 +160,10 @@ export default function AdminDashboard() {
     loadOrders();
   }, [ready, loadStats, loadDryCleaners, loadPendingServices, loadOrders]);
 
-  async function setDryCleanerStatus(id: string, status: string) {
+  async function setDryCleanerStatus(id: string, status: string, approveServices = false) {
     setError("");
     try {
-      await apiFetch(`/api/admin/drycleaners/${id}/status`, "admin", { method: "POST", body: JSON.stringify({ status }) });
+      await apiFetch(`/api/admin/drycleaners/${id}/status`, "admin", { method: "POST", body: JSON.stringify({ status, ...(approveServices ? { approveServices: true } : {}) }) });
       loadDryCleaners();
       loadStats();
     } catch (e) {
@@ -270,6 +273,7 @@ export default function AdminDashboard() {
         </section>
       )}
 
+      {tab === "drycleaners" && <InviteCard />}
       {tab === "drycleaners" && (
         <section className="ff-card">
           {!dryCleaners ? (
@@ -285,14 +289,20 @@ export default function AdminDashboard() {
               <tbody>
                 {dryCleaners.map((dc) => (
                   <tr key={dc.id}>
-                    <td><div style={{ fontWeight: 600 }}>{dc.businessName}</div><div style={{ color: "#94a3b8" }}>{dc.address}</div><div style={{ color: dc.termsAcceptedAt ? "#059669" : "#b45309", fontSize: 12 }}>{dc.termsAcceptedAt ? "Terms accepted by " + (dc.termsAcceptedBy || "owner") + " on " + new Date(dc.termsAcceptedAt).toLocaleDateString("en-IN") : "Terms not accepted yet"}</div></td>
+                    <td><div style={{ fontWeight: 600 }}>{dc.businessName}</div><div style={{ color: "#94a3b8" }}>{dc.address}</div><div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
+                        {dc.phone ? dc.phone + " · " : ""}{dc.operatingHours || "no hours"}
+                        {dc.latitude != null && dc.longitude != null && (<> · <a href={`https://www.google.com/maps?q=${dc.latitude},${dc.longitude}`} target="_blank" rel="noreferrer">see on map</a></>)}
+                      </div>
+                      <div style={{ fontSize: 12, color: (dc.servicesLive || 0) + (dc.servicesPending || 0) > 0 ? "#059669" : "#b45309" }}>
+                        Prices: {dc.servicesLive || 0} live, {dc.servicesPending || 0} waiting · UPI: {dc.payoutUpiId || (dc.razorpayLinked ? "auto-split" : "missing")}
+                      </div><div style={{ color: dc.termsAcceptedAt ? "#059669" : "#b45309", fontSize: 12 }}>{dc.termsAcceptedAt ? "Terms accepted by " + (dc.termsAcceptedBy || "owner") + " on " + new Date(dc.termsAcceptedAt).toLocaleDateString("en-IN") : "Terms not accepted yet"}</div></td>
                     <td>{dc.ownerName || "—"}<div style={{ color: "#94a3b8" }}>{dc.ownerPhone}</div></td>
                     <td><Badge tone={statusTone(dc.status)}>{dc.status}</Badge><div style={{ fontSize: 12, marginTop: 4, color: "#f59e0b" }}>{dc.reviewCount ? `★ ${dc.avgRating} (${dc.reviewCount})` : <span style={{ color: "#94a3b8" }}>No ratings yet</span>}</div></td>
                     <td style={{ color: "#94a3b8" }}>{new Date(dc.createdAt).toLocaleDateString("en-IN")}</td>
                     <td style={{ textAlign: "right" }}>
                       <button className="ff-btn ff-btn-outline" style={{ marginRight: 6 }} onClick={() => setReviewsFor(reviewsFor === dc.id ? null : dc.id)}>Ratings</button>
                       {dc.status === "PENDING" && (
-                        <button className="ff-btn ff-btn-primary" onClick={() => setDryCleanerStatus(dc.id, "ACTIVE")}>Approve</button>
+                        <button className="ff-btn ff-btn-primary" onClick={() => setDryCleanerStatus(dc.id, "ACTIVE", true)}>Approve shop + prices</button>
                       )}
                       {dc.status === "ACTIVE" && (
                         <button className="ff-btn ff-btn-danger" onClick={() => setDryCleanerStatus(dc.id, "SUSPENDED")}>Suspend</button>

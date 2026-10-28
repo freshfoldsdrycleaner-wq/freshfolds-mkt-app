@@ -145,6 +145,7 @@ model DryCleaner {
   acceptingOrders Boolean @default(true) // false: store is switched off
   dailyOrderLimit Int? // max new orders per day (IST); null = no limit
   razorpayAccountId String? // Razorpay Route linked account (acc_...): advance share is paid to it automatically
+  payoutUpiId String? // where Fresh Folds sends this shop its share when not auto-split
 
   services Service[]
   orders   Order[]

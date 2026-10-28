@@ -7,6 +7,7 @@ interface Row {
   dryCleanerId: string;
   businessName: string;
   razorpayAccountId: string | null;
+  payoutUpiId?: string | null;
   advancesCollected: number;
   commission: number;
   alreadyPaid: number;
@@ -153,7 +154,10 @@ export default function PayoutAdmin() {
       ) : (
         rows.map((r) => (
           <div key={r.dryCleanerId} className="ff-card" style={{ padding: 14, marginBottom: 12 }}>
-            <p style={{ fontWeight: 700, marginBottom: 8 }}>{r.businessName}</p>
+            <p style={{ fontWeight: 700, marginBottom: 2 }}>{r.businessName}</p>
+            <p style={{ fontSize: 12, color: r.payoutUpiId ? "#475569" : "#b45309", marginBottom: 8 }}>
+              {r.payoutUpiId ? "Pay to UPI: " + r.payoutUpiId : "No payout UPI added yet"}
+            </p>
             <div style={{ fontSize: 13, display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
               <span>Advances paid to Fresh Folds</span><span>{inr(r.advancesCollected)}</span>
             </div>

@@ -37,7 +37,7 @@ export async function GET(req: Request) {
     include: { order: { select: { id: true, dryCleanerId: true, commissionAmount: true } } },
   });
   const payouts = await prisma.vendorPayout.findMany({ orderBy: { createdAt: "desc" } });
-  const dcs = await prisma.dryCleaner.findMany({ select: { id: true, businessName: true, razorpayAccountId: true } });
+  const dcs = await prisma.dryCleaner.findMany({ select: { id: true, businessName: true, razorpayAccountId: true, payoutUpiId: true } });
 
   const rows = dcs.map((dc) => {
     const mine = payments.filter((p) => p.order.dryCleanerId === dc.id);
@@ -56,6 +56,7 @@ export async function GET(req: Request) {
       dryCleanerId: dc.id,
       businessName: dc.businessName,
       razorpayAccountId: dc.razorpayAccountId,
+      payoutUpiId: dc.payoutUpiId,
       advancesCollected: round(advances),
       commission: round(commission),
       alreadyPaid: round(paid),
